@@ -1,0 +1,407 @@
+/* ==========================================================================
+   Armory Styles - Hide BG During Boot
+   ========================================================================== */
+
+/* ----------------------------------------
+   1. Base Variables & Global Styles
+   ---------------------------------------- */
+
+   :root {
+    /* Core Theme Colors */
+    --neon: #00ff99; /* Default: Terminal Green */
+    --accent: #ff00cc; /* Default: Terminal Green Accent */
+    --bg: #0b0b0b;   /* Default: Dark Background */
+
+    /* Scrollbar */
+    --scrollbar-width: 10px;
+
+    /* Layout (Defaults, overridden by quest.html inline styles if needed) */
+    --editor-container-width: 975px;
+    --editor-container-height: 973px;
+    --ace-wrapper-top: 110px;
+    --ace-wrapper-left: 62px;
+    --ace-wrapper-width: 830px;
+    --ace-wrapper-height: 634px;
+
+    /* Specific Theme Elements */
+    --divine-border-width: 24px;
+    --divine-frame-offset: 30px;
+  }
+
+  html {
+    font-family: 'Share Tech Mono', monospace;
+    background-color: var(--bg); /* Base background color on HTML */
+    color: var(--neon);          /* Base text color on HTML */
+    /* Base scrollbar colors for Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--neon) var(--bg); /* thumb track */
+    height: 100%; /* Ensure HTML takes full height */
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    position: relative; /* Keep relative for ::before */
+    min-height: 100%; /* Ensure body takes full height */
+    background-color: transparent; /* Body is transparent by default */
+    /* Remove fixed background properties from body */
+  }
+
+  /* Default background for Armory page only, applies when boot-complete is present */
+  body.armory-page.boot-complete {
+    background-image: url('../img/cyberpunk_store.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-color: var(--bg); /* Ensure background color */
+  }
+
+  /* ----------------------------------------
+     2. Theme Overrides (Applied to Body)
+     ---------------------------------------- */
+
+  /* Update Theme Variables */
+  body.theme-terminal-green    { --neon: #00ff99 !important; --accent: #ff00cc !important; --bg: #0b0b0b !important; }
+  body.theme-terminal-blue     { --neon: #00aaff !important; --accent: #aa00ff !important; --bg: #0b0b0b !important; }
+  body.theme-terminal-purple   { --neon: #bb00ff !important; --accent: #ff3300 !important; --bg: #0b0b0b !important; }
+  body.theme-retrowave         { --neon: #ff00aa !important; --accent: #00ffff !important; --bg: #120024 !important; }
+  body.theme-hologram          { --neon: #80ffea !important; --accent: #ff80bf !important; --bg: #001428 !important; }
+  body.theme-divine-machinery  { --neon: #00ff99 !important; --accent: #ff0000 !important; --bg: #0a0f0d !important; }
+  body.theme-slith             { --neon: #ffdd00 !important; --accent: #ff69b4 !important; --bg: #1a1800 !important; }
+
+  /* Update HTML background color when body theme changes */
+  /* This ensures the scrollbar track area matches the theme */
+  body.theme-terminal-green ~ * html, html.theme-terminal-green { background-color: #0b0b0b !important; }
+  body.theme-terminal-blue ~ * html, html.theme-terminal-blue { background-color: #0b0b0b !important; }
+  body.theme-terminal-purple ~ * html, html.theme-terminal-purple { background-color: #0b0b0b !important; }
+  body.theme-retrowave ~ * html, html.theme-retrowave { background-color: #120024 !important; }
+  body.theme-hologram ~ * html, html.theme-hologram { background-color: #001428 !important; }
+  body.theme-divine-machinery ~ * html, html.theme-divine-machinery { background-color: #0a0f0d !important; }
+  body.theme-slith ~ * html, html.theme-slith { background-color: #1a1800 !important; }
+
+
+  /* ----------------------------------------
+     3. Scrollbar Styling (Main Page - HTML) - Opaque Track
+     ---------------------------------------- */
+
+  /* Webkit Scrollbar Base */
+  html::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+  }
+
+  /* Webkit Scrollbar Track */
+  html::-webkit-scrollbar-track {
+    background-color: var(--bg) !important; /* Use theme background from HTML */
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Webkit Scrollbar Thumb */
+  html::-webkit-scrollbar-thumb {
+    background-color: var(--neon); /* Use theme neon */
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent); /* Use theme accent on hover */
+  }
+
+  /* Webkit Scrollbar Buttons */
+  html::-webkit-scrollbar-button {
+    display: none; /* Hide buttons */
+    width: 0;
+    height: 0;
+  }
+
+  /* Theme-Specific Scrollbar Overrides (Thumb color mostly) */
+  /* Track color is handled by the base rule + HTML background update */
+  body.theme-terminal-green   { scrollbar-color: #00ff99 #0b0b0b !important; }
+  body.theme-terminal-blue    { scrollbar-color: #00aaff #0b0b0b !important; }
+  body.theme-terminal-purple  { scrollbar-color: #bb00ff #0b0b0b !important; }
+  body.theme-retrowave        { scrollbar-color: #ff00aa #120024 !important; }
+  body.theme-hologram         { scrollbar-color: #80ffea #001428 !important; }
+  body.theme-divine-machinery { scrollbar-color: #00ff99 #0a0f0d !important; }
+  body.theme-slith            { scrollbar-color: #ffdd00 #1a1800 !important; }
+
+  /* Update Webkit track color for themes with different backgrounds */
+  html body.theme-retrowave::-webkit-scrollbar-track        { background-color: #120024 !important; }
+  html body.theme-hologram::-webkit-scrollbar-track         { background-color: #001428 !important; }
+  html body.theme-divine-machinery::-webkit-scrollbar-track { background-color: #0a0f0d !important; }
+  html body.theme-slith::-webkit-scrollbar-track            { background-color: #1a1800 !important; }
+
+  /* Update Webkit thumb color for themes */
+  body.theme-terminal-green::-webkit-scrollbar-thumb   { background-color: #00ff99 !important; }
+  body.theme-terminal-blue::-webkit-scrollbar-thumb    { background-color: #00aaff !important; }
+  body.theme-terminal-purple::-webkit-scrollbar-thumb  { background-color: #bb00ff !important; }
+  body.theme-retrowave::-webkit-scrollbar-thumb        { background-color: #ff00aa !important; }
+  body.theme-hologram::-webkit-scrollbar-thumb         { background-color: #80ffea !important; }
+  body.theme-divine-machinery::-webkit-scrollbar-thumb { background-color: #00ff99 !important; }
+  body.theme-slith::-webkit-scrollbar-thumb            { background-color: #ffdd00 !important; }
+
+  /* Update Webkit thumb hover color for themes */
+  body.theme-terminal-green::-webkit-scrollbar-thumb:hover   { background-color: #ff00cc !important; }
+  body.theme-terminal-blue::-webkit-scrollbar-thumb:hover    { background-color: #aa00ff !important; }
+  body.theme-terminal-purple::-webkit-scrollbar-thumb:hover  { background-color: #ff3300 !important; }
+  body.theme-retrowave::-webkit-scrollbar-thumb:hover        { background-color: #00ffff !important; }
+  body.theme-hologram::-webkit-scrollbar-thumb:hover         { background-color: #ff80bf !important; }
+  body.theme-divine-machinery::-webkit-scrollbar-thumb:hover { background-color: #ff0000 !important; }
+  body.theme-slith::-webkit-scrollbar-thumb:hover            { background-color: #ff69b4 !important; }
+
+
+  /* ----------------------------------------
+     4. Background Effects (body::before)
+     ---------------------------------------- */
+
+  body::before { /* General selector for the pseudo-element */
+    content: "";
+    position: fixed; /* Fixed position */
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: -1; /* Behind body content */
+    background-size: cover;
+    background-attachment: fixed; /* Keep fixed effect */
+    background-repeat: no-repeat;
+    /* MODIFICATION: Explicitly set background-color to transparent */
+    background-color: transparent !important;
+  }
+
+  /* --- MODIFICATION START: Show ::before only when boot is complete --- */
+  /* Only show the ::before pseudo-element when boot-complete is present */
+  /* This pseudo-element is used for themed backgrounds like Matrix Rain, Retrowave, Divine, Slith */
+  body.boot-complete::before {
+     display: block; /* Show only when boot-complete class is present */
+  }
+  /* --- MODIFICATION END --- */
+
+
+  /* Specific Background Effects (Applied only when ::before is visible and theme/bg class is active) */
+  /* Note: These use ::before, so they require .boot-complete to be active */
+  body.boot-complete.bg-matrix-rain::before {
+    background-image: url('../img/matrix_rain.png');
+    opacity: 0.15;
+    background-size: auto;
+    background-repeat: repeat-y;
+    animation: scrollBg 30s linear infinite;
+  }
+  @keyframes scrollBg {
+    from { background-position: 0 0; }
+    to { background-position: 0 1000px; }
+  }
+
+  body.boot-complete.theme-retrowave::before {
+    background-image: url('../img/retrowave_grid.png');
+    opacity: 0.8;
+    background-position: center bottom;
+  }
+  body.boot-complete.theme-divine-machinery::before {
+    background-image: linear-gradient(rgba(10, 15, 13, 0.8), rgba(10, 15, 13, 0.95)), url('../img/divine_machinery.png');
+    opacity: 0.9;
+    background-position: center center;
+  }
+  body.boot-complete.theme-slith::before {
+    background-image: url('../img/slith_background.png');
+    opacity: 0.95; /* Keep opacity high for visibility */
+    background-size: cover;
+    background-position: center center;
+  }
+
+  /* Remove background image for themes that don't use one (these rely on the body background color) */
+  body.boot-complete.theme-hologram::before,
+  body.boot-complete.theme-terminal-green::before,
+  body.boot-complete.theme-terminal-blue::before,
+  body.boot-complete.theme-terminal-purple::before {
+      background-image: none;
+      opacity: 1; /* Ensure the background color shows through */
+  }
+
+  /* Fixes for overlapping effects */
+  /* If a theme background is active, disable the generic matrix rain animation on ::before */
+  body.boot-complete[class*="theme-"].bg-matrix-rain::before {
+    animation: none !important; /* Disable rain scroll if theme is active */
+  }
+
+  /* MODIFICATION: Ensure the specific armory-page background image on the body is hidden
+     ONLY when a theme that provides a background image on the ::before is active.
+     This allows the default cyberpunk_store.png to show for themes that don't use ::before backgrounds.
+  */
+  body.armory-page.boot-complete.bg-matrix-rain,
+  body.armory-page.boot-complete.theme-retrowave,
+  body.armory-page.boot-complete.theme-divine-machinery,
+  body.armory-page.boot-complete.theme-slith {
+      background-image: none !important;
+  }
+
+
+  /* MODIFICATION: Set body background color to transparent when ANY theme class is active.
+     This is still needed to prevent the body's background color from obscuring the ::before image
+     for themes that *do* use it.
+  */
+  body.armory-page.boot-complete[class*="theme-"] {
+      background-color: transparent !important;
+  }
+
+
+  /* ----------------------------------------
+     5. Container & Layout Styles
+     ---------------------------------------- */
+
+  .container {
+    position: relative;
+    z-index: 1; /* Above body background image */
+  }
+
+  /* Style container when a theme or frame is active */
+  body[class*="theme-"] .container,
+  body[class*="frame-"] .container {
+    background: rgba(11, 11, 11, 0.7) !important; /* Semi-transparent */
+    border: none !important;
+    box-shadow: 0 0 15px var(--neon) !important; /* Use theme neon for glow */
+    border-radius: 5px; /* Optional: Add rounded corners */
+  }
+
+
+  /* ----------------------------------------
+     6. Frame & Editor Styles (CRT, Divine)
+     ---------------------------------------- */
+
+  /* --- Base Editor Container (Positioning) --- */
+  /* Styles primarily handled by inline styles in quest.html */
+  .editor-container {
+      position: relative !important;
+      margin: 1em auto !important;
+      background: transparent !important;
+      z-index: 2 !important;
+      overflow: hidden !important;
+      max-width: 100%;
+  }
+  .editor-container::before { /* Solid background behind Ace */
+      content: ""; position: absolute;
+      top: var(--ace-wrapper-top) !important; left: var(--ace-wrapper-left) !important;
+      width: var(--ace-wrapper-width) !important; height: var(--ace-wrapper-height) !important;
+      background-color: var(--bg) !important; /* Use theme background */
+      z-index: 1 !important; pointer-events: none !important; max-width: 100%;
+  }
+  #crtFrameImage { /* Default CRT Frame */
+      position: absolute !important; top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      pointer-events: none !important; z-index: 2 !important; display: block !important;
+      object-fit: contain;
+  }
+  #ace-wrapper { /* Ace Editor Position */
+      position: absolute !important;
+      top: var(--ace-wrapper-top) !important; left: var(--ace-wrapper-left) !important;
+      width: var(--ace-wrapper-width) !important; height: var(--ace-wrapper-height) !important;
+      z-index: 3 !important; background: transparent !important;
+      visibility: visible !important; opacity: 1 !important; max-width: 100%;
+  }
+  #crtFlicker { /* Power-on Animation */
+      position: absolute !important;
+      top: var(--ace-wrapper-top) !important; left: var(--ace-wrapper-left) !important;
+      width: var(--ace-wrapper-width) !important; height: var(--ace-wrapper-height) !important;
+      background: #000 !important; z-index: 5 !important; pointer-events: none !important;
+      transform-origin: center !important; animation: crtOn 1s ease-out forwards !important;
+      visibility: visible !important; max-width: 100%;
+  }
+  @keyframes crtOn { /* Flicker Animation */
+       0% { background: #000; opacity: 1; transform: scaleY(1); visibility: visible; }
+       8% { background: #000; opacity: 1; transform: scaleY(1); }
+       8.001% { background: #fff; opacity: 1; transform: scaleY(.02); }
+      20% { background: #fff; opacity: 1; transform: scaleY(.02); }
+      60% { background: #fff; opacity: 1; transform: scaleY(1); }
+     100% { background: #000; opacity: 0; transform: scaleY(1); visibility: hidden; }
+  }
+
+  /* --- Neon CRT Frame --- */
+  body.frame-neoncrt .editor-container {
+    border: 10px solid var(--accent) !important; border-radius: 12px !important;
+    box-shadow: 0 0 20px var(--accent) !important;
+  }
+  body.frame-neoncrt #crtFrameImage, body.frame-neoncrt #crtFlicker { display: none !important; }
+  body.frame-neoncrt .editor-container::after {
+    content: ""; position: absolute;
+    top: calc(var(--ace-wrapper-top) - 5px) !important; left: calc(var(--ace-wrapper-left) - 5px) !important;
+    width: calc(var(--ace-wrapper-width) + 10px) !important; height: calc(var(--ace-wrapper-height) + 10px) !important;
+    border: 1px solid var(--neon); border-radius: 8px; box-shadow: 0 0 8px var(--neon);
+    pointer-events: none; z-index: 4 !important; animation: neonPulse 2s infinite alternate;
+  }
+  @keyframes neonPulse {
+    from { box-shadow: 0 0 10px var(--neon), inset 0 0 5px var(--neon), 0 0 15px var(--accent); }
+    to   { box-shadow: 0 0 20px var(--neon), inset 0 0 10px var(--neon), 0 0 30px var(--accent); }
+  }
+
+  /* --- Divine Machinery Frame --- */
+  body.theme-divine-machinery #crtFrameImage, body.theme-divine-machinery #crtFlicker { display: none !important; }
+  body.theme-divine-machinery .editor-container { border: none !important; box-shadow: none !important; }
+  body.theme-divine-machinery .editor-container::after { /* The border image */
+      content: ""; position: absolute !important;
+      top: var(--divine-frame-offset) !important; left: var(--divine-frame-offset) !important;
+      width: calc(100% - (2 * var(--divine-frame-offset))) !important; height: calc(100% - (2 * var(--divine-frame-offset))) !important;
+      border: var(--divine-border-width) solid transparent !important; border-image: url('../img/circuit_border.png') 24 round !important;
+      z-index: 4 !important; pointer-events: none !important; box-sizing: border-box !important;
+  }
+  body.theme-divine-machinery #ace-wrapper { /* Adjust Ace position for border */
+      border: none !important;
+      top: calc(var(--divine-frame-offset) + var(--divine-border-width)) !important;
+      left: calc(var(--divine-frame-offset) + var(--divine-border-width)) !important;
+      width: calc(100% - (2 * var(--divine-frame-offset)) - (2 * var(--divine-border-width))) !important;
+      height: calc(100% - (2 * var(--divine-frame-offset)) - (2 * var(--divine-border-width))) !important;
+      z-index: 3 !important;
+  }
+  body.theme-divine-machinery .editor-container::before { /* Adjust background position */
+      top: calc(var(--divine-frame-offset) + var(--divine-border-width)) !important;
+      left: calc(var(--divine-frame-offset) + var(--divine-border-width)) !important;
+      width: calc(100% - (2 * var(--divine-frame-offset)) - (2 * var(--divine-border-width))) !important;
+      height: calc(100% - (2 * var(--divine-frame-offset)) - (2 * var(--divine-border-width))) !important;
+      z-index: 1 !important;
+  }
+
+  /* ----------------------------------------
+     7. Ace Editor & Theme Specific Visuals
+     ---------------------------------------- */
+
+  /* General Ace Editor Overrides */
+  .ace_editor, .ace_gutter, .ace_content { background: transparent !important; }
+  .ace_print-margin { display: none !important; }
+  .ace_line { max-width: 100% !important; } /* Prevent horizontal scroll in Ace */
+  .ace_marker-layer .ace_active-line { background: rgba(255, 255, 255, .07) !important; position: absolute; z-index: 0; }
+  .ace_gutter-active-line { background: rgba(255, 255, 255, .07) !important; }
+
+  /* Glitch Cursor Effect */
+  body.effect-glitch-cursor .ace_cursor {
+    animation: cursor-glitch 1.5s infinite;
+    box-shadow: 0 0 5px var(--neon);
+  }
+  @keyframes cursor-glitch {
+    0%   { opacity: 1; } 10%  { opacity: .8; transform: translateX(1px); }
+    20%  { opacity: 1; transform: translateX(0); } 70%  { opacity: 1; transform: translateX(0); }
+    72%  { opacity: .2; transform: translateX(-2px); } 74%  { opacity: 1; transform: translateX(0); }
+    90%  { opacity: 1; } 92%  { opacity: .1; } 94%  { opacity: 1; }
+  }
+
+  /* Divine Machinery Theme Specifics */
+  body.theme-divine-machinery .ace_selection { background-color: rgba(255, 0, 0, 0.25) !important; }
+  body.theme-divine-machinery .container button { border-color: var(--accent) !important; box-shadow: 0 0 10px var(--accent); }
+  body.theme-divine-machinery h1 { text-shadow: 0 0 10px rgba(0, 255, 153, 0.5); position: relative; }
+  body.theme-divine-machinery h1::before, body.theme-divine-machinery h1::after {
+      content: "†"; position: absolute; top: 50%; transform: translateY(-50%);
+      font-size: 1.2em; opacity: 0.8; color: var(--accent); text-shadow: 0 0 8px var(--accent);
+  }
+  body.theme-divine-machinery h1::before { left: -1.5em; }
+  body.theme-divine-machinery h1::after { right: -1.5em; }
+
+  /* Slith Theme Specifics */
+  body.theme-slith .ace_cursor { border-left-color: var(--neon) !important; box-shadow: 0 0 8px var(--neon); }
+  body.theme-slith .ace_selection { background-color: rgba(255, 105, 180, 0.25) !important; border-radius: 2px; box-shadow: 0 0 10px rgba(255, 105, 180, 0.3); }
+  body.theme-slith .container button, body.theme-slith .container input[type="submit"] { background-color: rgba(26, 24, 0, 0.7) !important; border: 1px solid rgba(255, 221, 0, 0.5) !important; color: var(--neon) !important; backdrop-filter: blur(2px); box-shadow: 0 0 10px rgba(255, 221, 0, 0.3); transition: all 0.3s ease; }
+  body.theme-slith .container button:hover, body.theme-slith .container input[type="submit"]:hover { background-color: rgba(40, 35, 0, 0.8) !important; border-color: rgba(255, 221, 0, 0.8) !important; box-shadow: 0 0 15px rgba(255, 221, 0, 0.5); }
+  body.theme-slith h1, body.theme-slith h2, body.theme-slith h3 { color: var(--neon); text-shadow: 0 0 8px rgba(255, 221, 0, 0.6); letter-spacing: 1.5px; opacity: 0.9; }
+
+  /* Hologram Theme Specifics */
+  body.theme-hologram .ace_cursor { border-left-color: var(--neon) !important; box-shadow: 0 0 8px var(--neon); }
+  body.theme-hologram .ace_selection { background-color: rgba(255, 128, 191, 0.25) !important; border-radius: 2px; box-shadow: 0 0 10px rgba(255, 128, 191, 0.3); }
+  body.theme-hologram .container button, body.theme-hologram .container input[type="submit"] { background-color: rgba(0, 20, 40, 0.7) !important; border: 1px solid rgba(128, 255, 234, 0.5) !important; color: var(--neon) !important; backdrop-filter: blur(2px); box-shadow: 0 0 10px rgba(128, 255, 234, 0.3); transition: all 0.3s ease; }
+  body.theme-hologram .container button:hover, body.theme-hologram .container input[type="submit"]:hover { background-color: rgba(0, 30, 50, 0.8) !important; border-color: rgba(128, 255, 234, 0.8) !important; box-shadow: 0 0 15px rgba(128, 255, 234, 0.5); }
+  body.theme-hologram h1, body.theme-hologram h2, body.theme-hologram h3 { color: var(--neon
