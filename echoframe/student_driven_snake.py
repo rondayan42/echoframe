@@ -1082,6 +1082,7 @@ def student_process(child_conn, temp_dir, student_path):
     # Inject custom get_user_direction
     def get_user_direction():
         ns = sys.modules['__main__'].__dict__
+        print(f"[DEBUG get_user_direction] Called.")
 
         # Determine a fallback direction based on snake's current direction if possible
         fallback_direction = 'RIGHT' # Default fallback
@@ -1126,6 +1127,13 @@ def student_process(child_conn, temp_dir, student_path):
         try:
             # Poll for a short time (e.g., up to 50ms, matching frame_delay)
             # This timeout should ideally be less than or equal to frame_delay in run_student_snake
+            polled_value = child_conn.poll(0.04)
+            print(f"[DEBUG get_user_direction] child_conn.poll(0.04) result: {polled_value}")
+            if polled_value:
+                new_direction = child_conn.recv()
+                print(f"[DEBUG get_user_direction] Received new_direction: {new_direction}")
+                if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+                    print(f"[DEBUG get_user_direction] Returning NEWLY RECEIVED direction: {new_direction}")
             if child_conn.poll(0.04):
                 new_direction = child_conn.recv()
                 if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
@@ -1135,6 +1143,7 @@ def student_process(child_conn, temp_dir, student_path):
         except Exception: # Other potential errors during recv (e.g., timeout, deserialization)
             pass # Will use fallback
 
+        print(f"[DEBUG get_user_direction] Returning FALLBACK direction: {fallback_direction}")
         return fallback_direction
     import builtins
     builtins.get_user_direction = get_user_direction
@@ -1192,6 +1201,7 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
                 # Send the current direction from client_inputs to the student_process
                 # Default to 'RIGHT' if no input has been registered for the session yet
                 current_input = client_inputs.get(sid, 'RIGHT')
+                print(f"[DEBUG run_student_snake SID: {sid}] Sending to student_process direction: {current_input}")
                 parent_conn.send(current_input)
             if not proc.is_alive():
                 break
