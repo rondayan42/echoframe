@@ -664,14 +664,19 @@ function drawGameState(state) {
   // Clear and resize canvas
   clearCanvas();
   resizeCanvas(state.grid_width, state.grid_height);
+  // Get computed styles
+  const rootStyles = getComputedStyle(document.documentElement);
+
   // Draw snake
-  ctx.fillStyle = 'var(--preview-snake-color)';
+  const snakeColor = rootStyles.getPropertyValue('--preview-snake-color').trim();
+  ctx.fillStyle = snakeColor;
   (state.snake || []).forEach(([x, y]) => {
     ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
   });
   // Draw food
   if (state.food) {
-    ctx.fillStyle = 'var(--preview-food-color)';
+    const foodColor = rootStyles.getPropertyValue('--preview-food-color').trim();
+    ctx.fillStyle = foodColor;
     ctx.fillRect(state.food[0] * CELL_SIZE, state.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
   }
   // Draw score
