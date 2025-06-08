@@ -644,6 +644,7 @@ function connectWebSocket() {
   if (socket && socket.connected) return;
   socket = io();
   socket.on('game_state_update', (state) => {
+    console.log('Received game state:', JSON.stringify(state));
     lastGameState = state;
     drawGameState(state);
   });
@@ -664,14 +665,23 @@ function drawGameState(state) {
   // Clear and resize canvas
   clearCanvas();
   resizeCanvas(state.grid_width, state.grid_height);
+  // Get computed styles
+  const rootStyles = getComputedStyle(document.documentElement);
+
+  // Draw grid
+  const gridColor = rootStyles.getPropertyValue('--preview-grid-color').trim();
+  drawGrid(state.grid_width, state.grid_height, CELL_SIZE, gridColor);
+
   // Draw snake
-  ctx.fillStyle = 'var(--preview-snake-color)';
+  const snakeColor = rootStyles.getPropertyValue('--preview-snake-color').trim();
+  ctx.fillStyle = snakeColor;
   (state.snake || []).forEach(([x, y]) => {
     ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
   });
   // Draw food
   if (state.food) {
-    ctx.fillStyle = 'var(--preview-food-color)';
+    const foodColor = rootStyles.getPropertyValue('--preview-food-color').trim();
+    ctx.fillStyle = foodColor;
     ctx.fillRect(state.food[0] * CELL_SIZE, state.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
   }
   // Draw score
@@ -806,7 +816,10 @@ window.addEventListener('resize', () => {
       if (lastGameState) {
         // Use existing draw functions instead of drawGameState
         clearCanvas();
-        drawGrid(lastGameState.grid_width, lastGameState.grid_height);
+        // Ensure rootStyles is available or re-fetch if necessary
+        const rootStyles = getComputedStyle(document.documentElement);
+        const gridColor = rootStyles.getPropertyValue('--preview-grid-color').trim();
+        drawGrid(lastGameState.grid_width, lastGameState.grid_height, CELL_SIZE, gridColor);
         
         // Re-render the game state
         socket.emit('get_current_state');
@@ -817,6 +830,25 @@ window.addEventListener('resize', () => {
     }
   }
 });
+
+// Function to draw the grid
+function drawGrid(gridW, gridH, cellSize, gridColor) {
+  ctx.strokeStyle = gridColor;
+  // Draw vertical lines
+  for (let x = 0; x <= gridW * cellSize; x += cellSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridH * cellSize);
+    ctx.stroke();
+  }
+  // Draw horizontal lines
+  for (let y = 0; y <= gridH * cellSize; y += cellSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(gridW * cellSize, y);
+    ctx.stroke();
+  }
+}
 
 // Initial setup
 renderTabs();
