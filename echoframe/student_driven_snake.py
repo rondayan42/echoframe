@@ -1223,12 +1223,6 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
         if sid in client_inputs: # Use student_driven_snake.client_inputs
             print(f"[DEBUG run_student_snake SID: {sid}] Deleting client_inputs[{sid}] in finally block.")
             del client_inputs[sid] # Global from student_driven_snake.py
-                break
-        proc.terminate()
-        proc.join(timeout=0.5)
-        shutil.rmtree(temp_dir)
-    except Exception as e:
-        socketio.emit('preview_error', {'error': f'Internal error: {traceback.format_exc()}'}, room=sid)
 
 # --- Standalone gameplay code below ---
 # This code is only used when running the file directly (not when imported)
