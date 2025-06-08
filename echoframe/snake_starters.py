@@ -1180,6 +1180,8 @@ FPS = 10
 FONT_NAME = None # Use default system font
 FONT_SIZE = 24 # Reduced from 30 to match original constant
 SCORE_POS = (10, 10) # Position for the score display
+GAME_OVER_FONT_SIZE = 36
+RESTART_FONT_SIZE = 24
 """,
         "snake.py": """# snake.py: Main game logic file.
 import pygame
