@@ -1565,18 +1565,22 @@ def stop_preview():
 
 # Handle direction change input from the client during snake game
 @socketio.on('change_direction')
-def handle_change_direction(data):
+def handle_change_direction(data): # sid is from request.sid
     sid = request.sid
-    if sid not in student_driven_snake.active_simulations:
-        print(f"[Snake Preview] Received direction change for inactive simulation.")
-        return
     direction = data.get('direction')
-    valid_directions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
-    if direction in valid_directions:
+
+    if direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+        # Directly update the authoritative client_inputs in student_driven_snake.py
         student_driven_snake.client_inputs[sid] = direction
-        student_driven_snake.handle_direction_input(sid, direction)
+        print(f"[app.py handle_change_direction SID: {sid}] student_driven_snake.client_inputs updated to: {direction}")
+
+        if not student_driven_snake.active_simulations.get(sid):
+            print(f"[{sid}] INFO from app.py: Direction input '{direction}' processed. student_driven_snake.active_simulations for SID {sid} is currently False or SID not found. client_inputs was still updated.")
+        # else:
+        #     print(f"[{sid}] INFO from app.py: Direction input '{direction}' processed for an active simulation.")
+        # No longer calling student_driven_snake.handle_direction_input from here.
     else:
-        print(f"[Snake Preview] Received invalid direction: {direction}")
+        print(f"[app.py handle_change_direction SID: {sid}] Received invalid direction: {direction}")
 
 # Handler for get_current_state event to refresh game state on window resize
 @socketio.on('get_current_state')

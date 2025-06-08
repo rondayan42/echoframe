@@ -305,6 +305,18 @@ def _cleanup_builtins_constants(global_dict):
 # Function to stop the snake game for a session
 def stop_student_snake(sid):
     """Stop the snake game for a specific session."""
+    if sid in active_simulations: # Check our own module's active_simulations
+        print(f"[student_driven_snake.py stop_student_snake SID: {sid}] Stopping game.")
+        active_simulations[sid] = False # Mark as inactive
+
+        if sid in student_namespaces: # student_namespaces is specific to student_driven_snake
+            del student_namespaces[sid]
+
+        # DO NOT DELETE client_inputs[sid] here.
+        # print(f"[student_driven_snake.py stop_student_snake SID: {sid}] client_inputs[{sid}] will NOT be deleted by stop_student_snake.")
+
+        return True
+    print(f"[student_driven_snake.py stop_student_snake SID: {sid}] No active simulation found to stop.")
     if sid in active_simulations:
         print(f"Stopping student snake game for session {sid}")
         active_simulations[sid] = False
@@ -1138,6 +1150,8 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
     On error, send error state to the client. All file/echo handling is dynamic and global.
     """
     import sys, importlib.util, traceback, time, multiprocessing, os, tempfile, shutil, json
+    temp_dir = None
+    proc = None
     try:
         # --- PATCH: Enforce headless Pygame and suppress window creation ---
         os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -1159,6 +1173,8 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
         parent_conn, child_conn = multiprocessing.Pipe()
 
         # Start the student process (now top-level)
+        active_simulations[sid] = True # Set before starting process
+        print(f"[DEBUG run_student_snake SID: {sid}] Set active_simulations[{sid}] to True.")
         proc = multiprocessing.Process(target=student_process, args=(child_conn, temp_dir, student_path))
         proc.start()
         max_frames = 200
@@ -1182,6 +1198,31 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
                 print(f"[DEBUG run_student_snake SID: {sid}] Sending to student_process direction: {current_input}")
                 parent_conn.send(current_input)
             if not proc.is_alive():
+                print(f"[DEBUG run_student_snake SID: {sid}] Student process died. Exiting loop.")
+                break
+    except Exception as e: # Catch broader exceptions during setup/loop
+        socketio.emit('preview_error', {'error': f'Internal error in run_student_snake: {traceback.format_exc()}'}, room=sid)
+        print(f"[ERROR run_student_snake SID: {sid}] Exception: {e}")
+        traceback.print_exc()
+    finally:
+        print(f"[DEBUG run_student_snake SID: {sid}] Finalizing and cleaning up in run_student_snake.")
+        if proc and proc.is_alive():
+            print(f"[DEBUG run_student_snake SID: {sid}] Terminating student process {proc.pid if hasattr(proc, 'pid') else 'N/A'}.")
+            proc.terminate()
+            proc.join(timeout=0.5)
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+                print(f"[DEBUG run_student_snake SID: {sid}] Removed temp dir: {temp_dir}")
+            except Exception as e:
+                print(f"[DEBUG run_student_snake SID: {sid}] Error removing temp dir {temp_dir}: {e}")
+
+        if sid in active_simulations: # Use student_driven_snake.active_simulations
+            print(f"[DEBUG run_student_snake SID: {sid}] Setting active_simulations[{sid}] to False in finally block.")
+            active_simulations[sid] = False # Global from student_driven_snake.py
+        if sid in client_inputs: # Use student_driven_snake.client_inputs
+            print(f"[DEBUG run_student_snake SID: {sid}] Deleting client_inputs[{sid}] in finally block.")
+            del client_inputs[sid] # Global from student_driven_snake.py
                 break
         proc.terminate()
         proc.join(timeout=0.5)
