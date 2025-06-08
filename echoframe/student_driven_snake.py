@@ -1134,6 +1134,9 @@ def student_process(child_conn, temp_dir, student_path):
                 print(f"[DEBUG get_user_direction] Received new_direction: {new_direction}")
                 if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
                     print(f"[DEBUG get_user_direction] Returning NEWLY RECEIVED direction: {new_direction}")
+            if child_conn.poll(0.04):
+                new_direction = child_conn.recv()
+                if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
                     return new_direction
         except EOFError: # Pipe might have been closed
             pass # Will use fallback
