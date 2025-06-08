@@ -109,13 +109,13 @@ K_ESCAPE = 27  # pygame.K_ESCAPE
 def get_user_snake_dir(username, echo_level=None, create=True):
     """
     Get the directory for a user's snake files.
-    
+
     Args:
         username: The username of the snaker
         echo_level: Optional integer representing the echo level (0-9).
                    If provided, return the directory for that echo level.
         create: Boolean, whether to create the directory if it doesn't exist
-        
+
     Returns:
         Path to the user's snake code directory or echo-specific directory
     """
@@ -124,14 +124,14 @@ def get_user_snake_dir(username, echo_level=None, create=True):
 
     if create and not os.path.exists(user_dir):
         os.makedirs(user_dir, exist_ok=True)
-    
+
     # If echo level is provided, get the echo-specific directory
     if echo_level is not None and 0 <= echo_level < 10:
         echo_dir = os.path.join(user_dir, f'snake_echo_{echo_level+1}')
         if create and not os.path.exists(echo_dir):
             os.makedirs(echo_dir, exist_ok=True)
         return echo_dir
-        
+
     return user_dir
 
 # Custom module mock for pygame to prevent window opening
@@ -140,10 +140,10 @@ class MockPygame:
     class Surface:
         def __init__(self, size):
             self.size = size
-            
+
         def fill(self, color):
             pass
-            
+
         def blit(self, source, dest, area=None, special_flags=0):
             pass
 
@@ -174,7 +174,7 @@ class MockPygame:
 
         def circle(self, surface, color, center, radius, width=0):
             pass
-            
+
         def line(self, surface, color, start_pos, end_pos, width=1):
             pass
 
@@ -209,7 +209,7 @@ class MockPygame:
             return type('MockFont', (), {
                 'render': lambda text, antialias, color: MockPygame.Surface((100, 30))
             })
-            
+
     class MockEvent:
         def get(self, *args, **kwargs):
             events = []
@@ -241,52 +241,52 @@ class MockPygame:
 def _determine_echo_level(files):
     """Determine which echo level the student is at based on their code."""
     echo_level = 0
-    
+
     # Check for constants definition (Echo 1)
     for _, code in files.items():
         if 'GRID_WIDTH' in code and 'GRID_HEIGHT' in code and 'CELL_SIZE' in code:
             echo_level = max(echo_level, 1)
-    
+
     # Check for game loop (Echo 2)
     for _, code in files.items():
         if 'pygame.init()' in code and 'while' in code and 'pygame.display.flip()' in code:
             echo_level = max(echo_level, 2)
-    
+
     # Check for Snake class (Echo 3)
     for _, code in files.items():
         if 'class Snake' in code:
             echo_level = max(echo_level, 3)
-            
+
     # Check for draw method (Echo 4)
     for _, code in files.items():
         if 'class Snake' in code and 'def draw' in code and 'pygame.draw.rect' in code:
             echo_level = max(echo_level, 4)
-    
+
     # Check for Food class (Echo 5)
     for _, code in files.items():
         if 'class Food' in code:
             echo_level = max(echo_level, 5)
-    
+
     # Check for snake growth (Echo 6)
     for _, code in files.items():
         if ('grow' in code or 'eat' in code) and 'food' in code.lower():
             echo_level = max(echo_level, 6)
-    
+
     # Check for input handling (Echo 7)
     for _, code in files.items():
         if 'pygame.K_UP' in code or 'pygame.K_DOWN' in code:
             echo_level = max(echo_level, 7)
-    
+
     # Check for collision detection (Echo 8)
     for _, code in files.items():
         if ('collision' in code or 'collide' in code) and ('wall' in code or 'self' in code):
             echo_level = max(echo_level, 8)
-    
+
     # Check for game over (Echo 9)
     for _, code in files.items():
         if 'game over' in code.lower() or 'gameover' in code.lower() or 'restart' in code.lower():
             echo_level = max(echo_level, 9)
-    
+
     return echo_level
 
 # Functions to manage built-in constants
@@ -318,52 +318,29 @@ def stop_student_snake(sid):
 # Function to handle direction input from client
 def handle_direction_input(sid, direction):
     """Handle direction input from the client."""
-    # Convert direction to string format and store both string and constant format
-    # This ensures compatibility with both types of direction representations
     if direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
-        client_inputs[sid] = direction
-        print(f"[{sid}] Direction input registered: {direction}")
-        
-        # Debug - Check if the student's namespace has a snake object to control
-        if sid in student_namespaces:
-            ns = student_namespaces[sid]
-            if 'snake' in ns:
-                snake_obj = ns.get('snake')
-                print(f"[{sid}] Found snake object: {type(snake_obj)}")
-                # Check if the snake has a direction property
-                if hasattr(snake_obj, 'direction'):
-                    old_dir = snake_obj.direction
-                    # Try to update the snake's direction directly (handle string format)
-                    try:
-                        # Check what type of direction the snake is using
-                        # It could be a string like 'RIGHT' or a constant like RIGHT
-                        if isinstance(old_dir, str):
-                            # The snake uses string directions
-                            snake_obj.direction = direction
-                        else:
-                            # The snake uses constant directions
-                            # Map the string direction to the constant direction
-                            if direction == 'UP' and 'UP' in ns:
-                                snake_obj.direction = ns['UP']
-                            elif direction == 'DOWN' and 'DOWN' in ns:
-                                snake_obj.direction = ns['DOWN']
-                            elif direction == 'LEFT' and 'LEFT' in ns:
-                                snake_obj.direction = ns['LEFT']
-                            elif direction == 'RIGHT' and 'RIGHT' in ns:
-                                snake_obj.direction = ns['RIGHT']
-                            
-                        print(f"[{sid}] Updated snake direction from {old_dir} to {direction}")
-                    except Exception as e:
-                        print(f"[{sid}] Failed to update snake direction: {e}")
-                else:
-                    print(f"[{sid}] Snake object doesn't have a 'direction' attribute")
-            else:
-                print(f"[{sid}] No 'snake' object found in namespace with keys: {list(ns.keys())}")
+        client_inputs[sid] = direction  # Update client_inputs with the valid direction
+        print(f"[{sid}] client_inputs for SID {sid} updated to: {direction}") # Log the update
+
+        if sid not in active_simulations or not active_simulations.get(sid):
+            print(f"[{sid}] INFO: Direction input '{direction}' processed by handle_direction_input. Simulation was not marked as 'active' in active_simulations dictionary (or SID not found). client_inputs still updated.")
         else:
-            print(f"[{sid}] No namespace found for session {sid}")
-            
-        return True
-    return False
+            print(f"[{sid}] INFO: Direction input '{direction}' processed by handle_direction_input for an active simulation.")
+            # Optional: Keep the debug direct manipulation attempt for logging if useful,
+            # but it's understood this doesn't directly affect student_process.
+            if sid in student_namespaces and 'snake' in student_namespaces[sid]:
+                snake_obj = student_namespaces[sid].get('snake')
+                if hasattr(snake_obj, 'direction'):
+                    print(f"[{sid}] DEBUG_DIRECT_MANIP: current snake_obj.direction in namespace: {getattr(snake_obj, 'direction', 'N/A')}")
+                # else:
+                #     print(f"[{sid}] DEBUG_DIRECT_MANIP: snake_obj in namespace has no 'direction' attribute.")
+            # else:
+            #     print(f"[{sid}] DEBUG_DIRECT_MANIP: No 'snake' obj in student_namespaces for SID {sid}.")
+
+        return True # Return True because a valid direction was received and stored in client_inputs
+    else:
+        print(f"[{sid}] Invalid direction received in handle_direction_input: {direction}")
+        return False # Invalid direction string
 
 # Function to send game state updates
 def send_game_state_update(socketio, sid, game_state):
@@ -376,20 +353,20 @@ def send_game_state_update(socketio, sid, game_state):
 # Define a helper function to determine echo level
 def determine_echo_level(sid, username, socketio_instance=None):
     """Determine the echo level for a user.
-    
+
     Args:
         sid: The socket ID
         username: The username if available
         socketio_instance: The socketio instance if available
-        
+
     Returns:
         int: The echo level (1-10)
     """
     echo_level = None
     socketio_to_use = socketio_instance or global_socketio
-    
+
     print(f"[{sid}] DEBUG: Determining echo level...")
-    
+
     # Direct mapping from quest ID to echo level
     quest_to_echo = {
         20: 1,  # Quest 20 = Echo 1
@@ -403,7 +380,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
         28: 9,  # Quest 28 = Echo 9
         29: 10  # Quest 29 = Echo 10
     }
-    
+
     # Method 1: From app function - most reliable if username is available
     if username:
         try:
@@ -414,7 +391,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                 return echo_level + 1  # Convert 0-based to 1-based
         except Exception as e:
             print(f"[{sid}] Error getting echo level from app: {e}")
-    
+
     # Method 2: Extract quest ID from request context if available
     try:
         from flask import has_request_context, request
@@ -422,7 +399,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
             # Get path from request
             path = request.path
             print(f"[{sid}] URL path from request: {path}")
-            
+
             # Extract quest number using regex for more reliable parsing
             import re
             quest_match = re.search(r'/quest/(\d+)', path)
@@ -435,7 +412,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                     return 9  # Echo 9
                 if quest_id in quest_to_echo:
                     return quest_to_echo[quest_id]
-            
+
             # Check query parameter as fallback
             if hasattr(request, 'args') and 'echo' in request.args:
                 try:
@@ -445,11 +422,11 @@ def determine_echo_level(sid, username, socketio_instance=None):
                         return echo_level
                 except ValueError:
                     pass
-                    
+
             # Check URL directly for echoframe-related paths
             url_path = request.path
             print(f"[{sid}] Checking URL path directly: {url_path}")
-            
+
             # Check for quest in URL components
             url_parts = url_path.split('/')
             for i, part in enumerate(url_parts):
@@ -461,7 +438,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                             return quest_to_echo[quest_id]
                     except (ValueError, IndexError):
                         pass
-                        
+
             # Check URL query parameters
             if hasattr(request, 'args'):
                 print(f"[{sid}] Checking URL query parameters: {request.args}")
@@ -473,10 +450,10 @@ def determine_echo_level(sid, username, socketio_instance=None):
                             return quest_to_echo[quest_id]
                     except ValueError:
                         pass
-                
+
     except Exception as e:
         print(f"[{sid}] Error extracting quest ID from path: {e}")
-    
+
     # Method 3: Check headers from socketio or session
     try:
         # Try to get quest ID from session
@@ -486,19 +463,19 @@ def determine_echo_level(sid, username, socketio_instance=None):
             print(f"[{sid}] Found current_quest in session: {current_quest}")
             if current_quest and isinstance(current_quest, int) and current_quest in quest_to_echo:
                 return quest_to_echo[current_quest]
-                
+
         # Check headers from socketio environ
         if socketio_to_use and hasattr(socketio_to_use, 'server'):
             for client_sid, client_session in socketio_to_use.server.environ.items():
                 if client_sid == sid:
                     # Print all headers for debugging
                     print(f"[{sid}] All headers in socketio.server.environ: {client_session}")
-                    
+
                     # Check various possible sources of the quest ID
                     for header_name in ['PATH_INFO', 'HTTP_REFERER', 'REQUEST_URI']:
                         header_value = client_session.get(header_name, '')
                         print(f"[{sid}] Header {header_name}: {header_value}")
-                        
+
                         # Try to extract quest ID
                         import re
                         quest_match = re.search(r'/quest/(\d+)', header_value)
@@ -507,7 +484,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                             print(f"[{sid}] Found quest ID {quest_id} in {header_name}")
                             if quest_id in quest_to_echo:
                                 return quest_to_echo[quest_id]
-                    
+
                     # Check if we can extract directly from the URL
                     request_uri = client_session.get('REQUEST_URI', '')
                     if request_uri:
@@ -521,7 +498,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                                         return quest_to_echo[quest_id]
                                 except (ValueError, IndexError):
                                     pass
-                                    
+
                     # Try to get the flask session from the client_session
                     if 'flask.session' in client_session:
                         try:
@@ -535,7 +512,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                             print(f"[{sid}] Error accessing flask.session: {e}")
     except Exception as e:
         print(f"[{sid}] Error checking headers or session: {e}")
-    
+
     # Last resort: Try to extract quest info from url in referer
     try:
         if socketio_to_use and hasattr(socketio_to_use, 'server'):
@@ -554,7 +531,7 @@ def determine_echo_level(sid, username, socketio_instance=None):
                                 pass
     except Exception as e:
         print(f"[{sid}] Error extracting from referer: {e}")
-    
+
     # Default to Echo 1 as the starting point
     print(f"[{sid}] Defaulting to echo level 1")
     return 1
@@ -576,25 +553,25 @@ def force_state_update(socketio, sid, student_namespace):
             "message_hint": "Watch this space for updates",
             "echo_level": 1
         }
-        
+
         # If we don't have a namespace for this session, nothing to update
         if sid not in student_namespaces:
             # Just send a default loading state
             print(f"[{sid}] Force state update requested but no namespace exists")
             socketio.emit('game_state_update', default_state, room=sid)
             return
-        
+
         # Get the student's namespace
         ns = student_namespaces[sid]
-        
+
         # Try to gather state from the namespace
         # This will vary based on the echo level
-        
+
         # Get echo level (either from namespace or assuming based on available objects)
         echo_level = 1
         socketio_instance = socketio or global_socketio
         username = None
-        
+
         # Try to get echo level from Flask session
         if hasattr(socketio_instance, 'server'):
             for client_sid, client_session in socketio_instance.server.environ.items():
@@ -611,20 +588,20 @@ def force_state_update(socketio, sid, student_namespace):
                             break
                     except:
                         pass
-                
+
                 # Special case check for quest/29 (Echo 10) in path or referer
                 path = client_session.get('PATH_INFO', '')
                 referer = client_session.get('HTTP_REFERER', '')
-                
+
                 if '/quest/29' in path or '/quest/29' in referer:
                     echo_level = 10
                     print(f"[{sid}] Special case: Found quest/29 in path or referer, forcing Echo 10")
-                
+
                 # Special case check for quest/28 (Echo 9) in path or referer
                 if '/quest/28' in path or '/quest/28' in referer:
                     echo_level = 9  # Echo 9 specifically for Quest 28
                     print(f"[{sid}] Special case: Found quest/28 in path or referer, forcing Echo 9")
-        
+
         # Check if all required constants exist with values
         required_constants = ['CELL_SIZE', 'GRID_WIDTH', 'GRID_HEIGHT', 'BLACK', 'WHITE', 'GREEN', 'RED']
         constants_exist = True
@@ -633,9 +610,9 @@ def force_state_update(socketio, sid, student_namespace):
                 constants_exist = False
                 print(f"[{sid}] Missing constant: {const}")
                 break
-        
+
         print(f"[{sid}] Force state update - Constants exist: {constants_exist}")
-        
+
         # If constants are missing, provide a message about defining constants
         if not constants_exist:
             state = {
@@ -663,13 +640,13 @@ def create_stub_modules(temp_dir, files):
     # Check if 'snake_class.py' is referenced but not provided
     needs_snake_class = False
     snake_class_exists = 'snake_class.py' in files
-    
+
     # Look for imports of snake_class in files
     for content in files.values():
         if 'import snake_class' in content or 'from snake_class import' in content:
             needs_snake_class = True
             break
-    
+
     # Create snake_class.py stub if needed
     if needs_snake_class and not snake_class_exists:
         print("Creating stub for snake_class.py")
@@ -679,7 +656,7 @@ import pygame
 import random
 
 # Direction constants in case students import them from here
-UP = 'UP' 
+UP = 'UP'
 DOWN = 'DOWN'
 LEFT = 'LEFT'
 RIGHT = 'RIGHT'
@@ -689,15 +666,15 @@ class Snake:
         self.positions = [[GRID_WIDTH // 2, GRID_HEIGHT // 2]]
         self.direction = RIGHT
         self.grow = False
-        
+
     def draw(self, screen):
         for position in self.positions:
             x, y = position
             pygame.draw.rect(screen, GREEN, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        
+
     def update(self):
         head_x, head_y = self.positions[0]
-        
+
         if self.direction == UP:
             new_head = [head_x, head_y - 1]
         elif self.direction == DOWN:
@@ -706,16 +683,16 @@ class Snake:
             new_head = [head_x - 1, head_y]
         else:  # RIGHT
             new_head = [head_x + 1, head_y]
-            
+
         self.positions.insert(0, new_head)
         if not self.grow:
             self.positions.pop()
         else:
             self.grow = False
-        
+
     def change_direction(self, new_direction):
         self.direction = new_direction
-            
+
     def check_collision(self):
         head = self.positions[0]
         body = self.positions[1:]
@@ -723,10 +700,10 @@ class Snake:
             if segment[0] == head[0] and segment[1] == head[1]:
                 return True
         return False
-        
+
     def grow_snake(self):
         self.grow = True
-        
+
     def check_boundary_collision(self, grid_width, grid_height):
         head_x, head_y = self.positions[0]
         return head_x < 0 or head_x >= grid_width or head_y < 0 or head_y >= grid_height
@@ -734,22 +711,22 @@ class Snake:
         # Write the stub file
         with open(os.path.join(temp_dir, "snake_class.py"), "w") as f:
             f.write(snake_class_stub)
-        
+
         # Add to files so it gets loaded
         files["snake_class.py"] = snake_class_stub
-        
+
     # --- Food Class Stub ---
     # Check if 'food_class.py' or 'food.py' is referenced but not provided
     needs_food_class = False
     food_class_exists = 'food_class.py' in files or 'food.py' in files
-    
+
     # Look for imports of food module in files
     for content in files.values():
         if ('import food_class' in content or 'from food_class import' in content or
             'import food' in content or 'from food import' in content):
             needs_food_class = True
             break
-    
+
     # Create food_class.py stub if needed
     if needs_food_class and not food_class_exists:
         print("Creating stub for food_class.py")
@@ -761,14 +738,14 @@ import random
 class Food:
     def __init__(self):
         self.position = self.get_random_position()
-        
+
     def draw(self, screen):
         x, y = self.position
         pygame.draw.rect(screen, RED, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        
+
     def get_random_position(self):
         return [random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)]
-        
+
     def reset(self, snake_positions=None):
         # Find a position not occupied by the snake
         new_pos = self.get_random_position()
@@ -784,10 +761,10 @@ class Food:
         # Write the stub file
         with open(os.path.join(temp_dir, "food_class.py"), "w") as f:
             f.write(food_class_stub)
-        
+
         # Add to files so it gets loaded
         files["food_class.py"] = food_class_stub
-        
+
         # For compatibility, create food.py with the full Food class implementation
         with open(os.path.join(temp_dir, "food.py"), "w") as f:
             f.write("""
@@ -800,12 +777,12 @@ class Food:
     def __init__(self):
         # Initialize with a random position
         self.reset()
-        
+
     def draw(self, screen):
         # Draw a red rectangle for the food
         x, y = self.position
         pygame.draw.rect(screen, RED, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        
+
     def reset(self, snake_positions=None):
         # Find a position not occupied by the snake
         new_pos = self.get_random_position()
@@ -820,19 +797,19 @@ class Food:
 """)
         # Set the content in files dictionary
         files["food.py"] = food_class_stub  # Use the same content we created for food_class.py
-        
+
     # --- Game Utilities Stub ---
     # Check if game_utils.py is referenced but not provided
     needs_game_utils = False
     game_utils_exists = 'game_utils.py' in files or 'utils.py' in files
-    
+
     # Look for imports of game_utils module in files
     for content in files.values():
         if ('import game_utils' in content or 'from game_utils import' in content or
             'import utils' in content or 'from utils import' in content):
             needs_game_utils = True
             break
-    
+
     # Create game_utils.py stub if needed
     if needs_game_utils and not game_utils_exists:
         print("Creating stub for game_utils.py")
@@ -850,10 +827,10 @@ def draw_text(screen, text, position, color=WHITE, font_size=FONT_SIZE):
     font = pygame.font.SysFont(None, font_size)
     text_surface = font.render(text, True, color)
     screen.blit(text_surface, position)
-    
+
 def check_collision(pos1, pos2):
     return pos1[0] == pos2[0] and pos1[1] == pos2[1]
-    
+
 def game_over_screen(screen, score):
     draw_text(screen, "GAME OVER", (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 30))
     draw_text(screen, f"SCORE: {score}", (SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 10))
@@ -862,10 +839,10 @@ def game_over_screen(screen, score):
         # Write the stub file
         with open(os.path.join(temp_dir, "game_utils.py"), "w") as f:
             f.write(game_utils_stub)
-        
+
         # Add to files so it gets loaded
         files["game_utils.py"] = game_utils_stub
-        
+
         # Also create utils.py as an alias
         with open(os.path.join(temp_dir, "utils.py"), "w") as f:
             f.write("""
@@ -873,17 +850,17 @@ def game_over_screen(screen, score):
 from game_utils import *
 """)
         files["utils.py"] = "from game_utils import *"
-        
+
     # --- Constants Module ---
     needs_constants = False
     constants_exists = 'constants.py' in files
-    
+
     # Look for imports of constants in files
     for content in files.values():
         if 'import constants' in content or 'from constants import' in content:
             needs_constants = True
             break
-    
+
     # Create constants.py stub if needed
     if needs_constants and not constants_exists:
         print("Creating stub for constants.py")
@@ -919,7 +896,7 @@ RIGHT = 'RIGHT'
         # Write the stub file
         with open(os.path.join(temp_dir, "constants.py"), "w") as f:
             f.write(constants_stub)
-        
+
         # Add to files so it gets loaded
         files["constants.py"] = constants_stub
 
@@ -927,7 +904,7 @@ RIGHT = 'RIGHT'
 def ensure_globals_in_namespace(files, namespace, echo_level=None, sid=None):
     """
     Make sure all necessary global constants are available in the namespace.
-    
+
     Args:
         files: Dict of filename -> content
         namespace: The namespace (dictionary) to populate
@@ -935,26 +912,26 @@ def ensure_globals_in_namespace(files, namespace, echo_level=None, sid=None):
         sid: Optional socket session ID for logging
     """
     print(f"[{sid}] Ensuring globals in namespace")
-    
+
     # For better debugging, log which constants are already defined
     constants_to_check = ['CELL_SIZE', 'GRID_WIDTH', 'GRID_HEIGHT', 'BLACK', 'WHITE', 'GREEN', 'RED', 'FPS']
     defined_constants = [const for const in constants_to_check if const in namespace]
     missing_constants = [const for const in constants_to_check if const not in namespace]
-    
+
     print(f"[{sid}] Already defined constants: {defined_constants}")
     print(f"[{sid}] Missing constants: {missing_constants}")
-    
+
     # If constants file exists, it should define these variables
     has_constants_file = False
     constants_content = ""
-    
+
     for filename, content in files.items():
         if filename.lower() == 'constants.py':
             has_constants_file = True
             constants_content = content
             # Parse constants file content to extract values
             print(f"[{sid}] Found constants.py file, checking content")
-            
+
             # For each missing constant, try to extract from the constants file
             for const in missing_constants:
                 import re
@@ -969,42 +946,42 @@ def ensure_globals_in_namespace(files, namespace, echo_level=None, sid=None):
                         print(f"[{sid}] Error evaluating {const}: {e}")
                 else:
                     print(f"[{sid}] Constant {const} not found in constants.py")
-    
+
     # If constants file doesn't exist, log a warning
     if not has_constants_file:
         print(f"[{sid}] Warning: No constants.py file found in student code!")
         print(f"[{sid}] Files found: {list(files.keys())}")
-    
+
     # Use default values for missing constants based on echo level
     if 'CELL_SIZE' not in namespace:
         namespace['CELL_SIZE'] = 20
         print(f"[{sid}] Using default CELL_SIZE = 20")
-        
+
     if 'GRID_WIDTH' not in namespace:
         namespace['GRID_WIDTH'] = 30
         print(f"[{sid}] Using default GRID_WIDTH = 30")
-        
+
     if 'GRID_HEIGHT' not in namespace:
         namespace['GRID_HEIGHT'] = 20
         print(f"[{sid}] Using default GRID_HEIGHT = 20")
-        
+
     if 'SCREEN_WIDTH' not in namespace:
         namespace['SCREEN_WIDTH'] = namespace['GRID_WIDTH'] * namespace['CELL_SIZE']
         print(f"[{sid}] Calculated SCREEN_WIDTH = {namespace['SCREEN_WIDTH']}")
-        
+
     if 'SCREEN_HEIGHT' not in namespace:
         namespace['SCREEN_HEIGHT'] = namespace['GRID_HEIGHT'] * namespace['CELL_SIZE']
         print(f"[{sid}] Calculated SCREEN_HEIGHT = {namespace['SCREEN_HEIGHT']}")
-    
+
     # Colors
     if 'BLACK' not in namespace: namespace['BLACK'] = (0, 0, 0)
     if 'WHITE' not in namespace: namespace['WHITE'] = (255, 255, 255)
     if 'GREEN' not in namespace: namespace['GREEN'] = (0, 255, 0)
     if 'RED' not in namespace: namespace['RED'] = (255, 0, 0)
-    
+
     # Game settings
     if 'FPS' not in namespace: namespace['FPS'] = 10
-    
+
     return namespace
 
 # Define a minimalist placeholder when student code is empty or missing
@@ -1032,37 +1009,37 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
-    
+
     # Fill the screen with a dark color
     screen.fill((40, 40, 60))
-    
+
     # Display error message
     title_font = pygame.font.SysFont(None, 48)
     title = title_font.render("Missing Student Code", True, (255, 100, 100))
     title_rect = title.get_rect(center=(DEFAULT_WIDTH//2, 100))
     screen.blit(title, title_rect)
-    
+
     # Display instructions
     font = pygame.font.SysFont(None, 32)
-    
+
     msg1 = font.render("This echo requires you to write the snake code.", True, (220, 220, 220))
     msg1_rect = msg1.get_rect(center=(DEFAULT_WIDTH//2, 180))
     screen.blit(msg1, msg1_rect)
-    
+
     msg2 = font.render("Please check the instructions and write your code", True, (220, 220, 220))
     msg2_rect = msg2.get_rect(center=(DEFAULT_WIDTH//2, 220))
     screen.blit(msg2, msg2_rect)
-    
+
     msg3 = font.render("in the appropriate files.", True, (220, 220, 220))
     msg3_rect = msg3.get_rect(center=(DEFAULT_WIDTH//2, 260))
     screen.blit(msg3, msg3_rect)
-    
+
     # Display hint
     hint_font = pygame.font.SysFont(None, 28)
     hint = hint_font.render("Remember: The code you write controls the snake game", True, (150, 255, 150))
     hint_rect = hint.get_rect(center=(DEFAULT_WIDTH//2, 330))
     screen.blit(hint, hint_rect)
-    
+
     pygame.display.flip()
     clock.tick(30)
 
@@ -1081,56 +1058,67 @@ def student_process(child_conn, temp_dir, student_path):
     sys.path.insert(0, temp_dir)
     # Inject custom get_user_direction
     def get_user_direction():
-        print('[DEBUG] get_user_direction called')
         ns = sys.modules['__main__'].__dict__
+        print(f"[DEBUG get_user_direction] Called.")
+
+        # Determine a fallback direction based on snake's current direction if possible
+        fallback_direction = 'RIGHT' # Default fallback
+        if 'snake' in ns:
+            snake_obj = ns['snake']
+            if hasattr(snake_obj, 'direction'):
+                # This assumes student's snake.direction is a string 'UP', 'DOWN', etc.
+                # If it's a tuple (dx, dy) or constant, this part would need adjustment
+                # or the student code would rely purely on the received direction.
+                if isinstance(snake_obj.direction, str) and snake_obj.direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+                    fallback_direction = snake_obj.direction
+
+        # Send current game state
         try:
-            snake = None
-            food = None
-            score = None
-            game_over = None
-            grid_width = ns.get('GRID_WIDTH', 30)
-            grid_height = ns.get('GRID_HEIGHT', 30)
-            if 'snake' in ns:
-                snake_obj = ns['snake']
-                if hasattr(snake_obj, 'positions'):
-                    snake = list(getattr(snake_obj, 'positions'))
-                elif isinstance(snake_obj, list):
-                    snake = snake_obj
-            if 'food' in ns:
-                food_obj = ns['food']
-                if hasattr(food_obj, 'position'):
-                    food = list(getattr(food_obj, 'position'))
-                elif isinstance(food_obj, (list, tuple)):
-                    food = list(food_obj)
-            if 'score' in ns:
-                score = ns['score']
-            if 'game_over' in ns:
-                game_over = ns['game_over']
-            if snake is None:
-                snake = [[15, 15]]
-            if food is None:
-                food = [10, 10]
-            if score is None:
-                score = 0
-            if game_over is None:
-                game_over = False
+            snake_positions = [[15,10]] # Default
+            if 'snake' in ns and hasattr(ns['snake'], 'positions'):
+                snake_positions = list(ns['snake'].positions)
+            elif 'snake' in ns and isinstance(ns['snake'], list): # Basic list of positions
+                snake_positions = ns['snake']
+
+            food_position = [20,10] # Default
+            if 'food' in ns and hasattr(ns['food'], 'position'):
+                food_position = list(ns['food'].position)
+            elif 'food' in ns and isinstance(ns['food'], (list, tuple)): # Basic list/tuple
+                food_position = list(ns['food'])
+
             game_state = {
-                'grid_width': grid_width,
-                'grid_height': grid_height,
-                'snake': snake,
-                'food': food,
-                'score': score,
-                'game_over': game_over,
-                'message_title': '',
-                'message_text': '',
-                'message_hint': '',
+                'grid_width': ns.get('GRID_WIDTH', 30),
+                'grid_height': ns.get('GRID_HEIGHT', 20),
+                'snake': snake_positions,
+                'food': food_position,
+                'score': ns.get('score', 0),
+                'game_over': ns.get('game_over', False),
+                'message_title': '', 'message_text': '', 'message_hint': ''
             }
             child_conn.send(game_state)
-            print('[DEBUG] game_state sent:', game_state)
         except Exception as e:
-            child_conn.send({'error': traceback.format_exc()})
-            print('[DEBUG] error sent:', traceback.format_exc())
-        return 'RIGHT'
+            # Send error if state extraction fails
+            child_conn.send({'error': f'Error in get_user_direction while extracting state: {traceback.format_exc()}'})
+
+        # Wait for direction from parent process
+        try:
+            # Poll for a short time (e.g., up to 50ms, matching frame_delay)
+            # This timeout should ideally be less than or equal to frame_delay in run_student_snake
+            polled_value = child_conn.poll(0.04)
+            print(f"[DEBUG get_user_direction] child_conn.poll(0.04) result: {polled_value}")
+            if polled_value:
+                new_direction = child_conn.recv()
+                print(f"[DEBUG get_user_direction] Received new_direction: {new_direction}")
+                if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+                    print(f"[DEBUG get_user_direction] Returning NEWLY RECEIVED direction: {new_direction}")
+                    return new_direction
+        except EOFError: # Pipe might have been closed
+            pass # Will use fallback
+        except Exception: # Other potential errors during recv (e.g., timeout, deserialization)
+            pass # Will use fallback
+
+        print(f"[DEBUG get_user_direction] Returning FALLBACK direction: {fallback_direction}")
+        return fallback_direction
     import builtins
     builtins.get_user_direction = get_user_direction
     try:
@@ -1183,6 +1171,12 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
                     break
                 else:
                     socketio.emit('game_state_update', msg, room=sid)
+
+                # Send the current direction from client_inputs to the student_process
+                # Default to 'RIGHT' if no input has been registered for the session yet
+                current_input = client_inputs.get(sid, 'RIGHT')
+                print(f"[DEBUG run_student_snake SID: {sid}] Sending to student_process direction: {current_input}")
+                parent_conn.send(current_input)
             if not proc.is_alive():
                 break
         proc.terminate()
@@ -1195,8 +1189,8 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
 # This code is only used when running the file directly (not when imported)
 if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
     # Set SDL_VIDEODRIVER to 'dummy' to prevent window from opening when testing
-    os.environ['SDL_VIDEODRIVER'] = 'dummy' 
-    
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+
     # --- Initialization ---
     pygame.init()
 
@@ -1229,18 +1223,18 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
             self.positions = [[GRID_WIDTH // 2, GRID_HEIGHT // 2]]
             self.direction = RIGHT
             self.grow = False
-        
+
         def draw(self, screen):
             # Draw the snake segments
             for position in self.positions:
-                pygame.draw.rect(screen, GREEN, 
-                                (position[0] * CELL_SIZE, position[1] * CELL_SIZE, 
+                pygame.draw.rect(screen, GREEN,
+                                (position[0] * CELL_SIZE, position[1] * CELL_SIZE,
                                  CELL_SIZE, CELL_SIZE))
-        
+
         def update(self):
             # Create a new head position based on current direction
             head = self.positions[0].copy()
-            
+
             # Update the head based on direction
             if self.direction == UP:
                 head[1] -= 1
@@ -1250,16 +1244,16 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                 head[0] -= 1
             elif self.direction == RIGHT:
                 head[0] += 1
-            
+
             # Add the new head
             self.positions.insert(0, head)
-            
+
             # Remove the tail unless we need to grow
             if not self.grow:
                 self.positions.pop()
             else:
                 self.grow = False
-            
+
             # Wrap around behavior for edges
             if head[0] < 0:
                 head[0] = GRID_WIDTH - 1
@@ -1269,7 +1263,7 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                 head[1] = GRID_HEIGHT - 1
             elif head[1] >= GRID_HEIGHT:
                 head[1] = 0
-        
+
         def check_collision(self):
             # Check if snake collides with itself
             head = self.positions[0]
@@ -1278,7 +1272,7 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                 if segment[0] == head[0] and segment[1] == head[1]:
                     return True
             return False
-        
+
         def grow_snake(self):
             self.grow = True
 
@@ -1287,17 +1281,17 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
         def __init__(self):
             # Initialize food at a random position
             self.position = self.get_random_position()
-            
+
         def draw(self, screen):
             # Draw the food
-            pygame.draw.rect(screen, RED, 
-                            (self.position[0] * CELL_SIZE, self.position[1] * CELL_SIZE, 
+            pygame.draw.rect(screen, RED,
+                            (self.position[0] * CELL_SIZE, self.position[1] * CELL_SIZE,
                              CELL_SIZE, CELL_SIZE))
-            
+
         def get_random_position(self):
             # Place food at a random position on the grid
             return [random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)]
-        
+
         def reposition(self, snake_positions):
             # Reposition food, ensuring it's not on the snake
             self.position = self.get_random_position()
@@ -1315,7 +1309,7 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            
+
             # Handle keyboard input
             if event.type == pygame.KEYDOWN:
                 if event.key == K_UP and snake.direction != DOWN:
@@ -1332,7 +1326,7 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                     food = Food()
                     score = 0
                     game_over = False
-        
+
         # Get direction from user input if available
         if not game_over:
             user_dir = get_user_direction()
@@ -1344,12 +1338,12 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                 snake.direction = LEFT
             elif user_dir == RIGHT and snake.direction != LEFT:
                 snake.direction = RIGHT
-        
+
         # Update game state if not game over
         if not game_over:
             # Update snake position
             snake.update()
-            
+
             # Check for collision with food
             snake_head = snake.positions[0]
             food_pos = food.position
@@ -1357,34 +1351,34 @@ if __name__ == "__main__" and not os.environ.get('SDL_VIDEODRIVER') == 'dummy':
                 snake.grow_snake()
                 food.reposition(snake.positions)
                 score += 1
-            
+
             # Check for collision with self
             if snake.check_collision():
                 game_over = True
-        
+
         # Draw everything
         screen.fill(BG_COLOR)
-        
+
         # Draw snake and food
         snake.draw(screen)
         food.draw(screen)
-        
+
         # Display score
-        render_text(f"Score: {score}", SMALL_FONT_SIZE, TEXT_COLOR, 
+        render_text(f"Score: {score}", SMALL_FONT_SIZE, TEXT_COLOR,
                     (SCORE_POS[0] + 50, SCORE_POS[1] + 10))
-        
+
         # Display game over message
         if game_over:
-            render_text(GAME_OVER_TEXT, LARGE_FONT_SIZE, GAME_OVER_COLOR, 
+            render_text(GAME_OVER_TEXT, LARGE_FONT_SIZE, GAME_OVER_COLOR,
                        (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
-            render_text(f"Final Score: {score}", MEDIUM_FONT_SIZE, TEXT_COLOR, 
+            render_text(f"Final Score: {score}", MEDIUM_FONT_SIZE, TEXT_COLOR,
                        (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            render_text(RESTART_TEXT, SMALL_FONT_SIZE, TEXT_COLOR, 
+            render_text(RESTART_TEXT, SMALL_FONT_SIZE, TEXT_COLOR,
                        (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
-        
+
         # Update display
         pygame.display.flip()
-        
+
         # Maintain game speed
         clock.tick(FPS)
 
