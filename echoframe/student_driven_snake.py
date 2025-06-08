@@ -317,6 +317,14 @@ def stop_student_snake(sid):
 
         return True
     print(f"[student_driven_snake.py stop_student_snake SID: {sid}] No active simulation found to stop.")
+    if sid in active_simulations:
+        print(f"Stopping student snake game for session {sid}")
+        active_simulations[sid] = False
+        if sid in student_namespaces:
+            del student_namespaces[sid]
+        if sid in client_inputs:
+            del client_inputs[sid]
+        return True
     return False
 
 # Function to handle direction input from client
@@ -1215,6 +1223,12 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
         if sid in client_inputs: # Use student_driven_snake.client_inputs
             print(f"[DEBUG run_student_snake SID: {sid}] Deleting client_inputs[{sid}] in finally block.")
             del client_inputs[sid] # Global from student_driven_snake.py
+                break
+        proc.terminate()
+        proc.join(timeout=0.5)
+        shutil.rmtree(temp_dir)
+    except Exception as e:
+        socketio.emit('preview_error', {'error': f'Internal error: {traceback.format_exc()}'}, room=sid)
 
 # --- Standalone gameplay code below ---
 # This code is only used when running the file directly (not when imported)
