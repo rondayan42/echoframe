@@ -1,0 +1,82 @@
+[
+  {
+    "title": "Snake Echo 1: Define the Grid",
+    "description": "Snake needs a playing field. In **constants.py** set:\n• CELL_SIZE = 20  (pixels)\n• GRID_WIDTH = 30\n• GRID_HEIGHT = 30\nThen compute SCREEN_WIDTH and SCREEN_HEIGHT from those values.\n\nIn **snake.py**, create a tuple using these constants:\n    window_size = (SCREEN_WIDTH, SCREEN_HEIGHT)\n\n(Note: You don't need to explicitly import constants; they'll be available.)",
+    "hint": "SCREEN_WIDTH should be CELL_SIZE * GRID_WIDTH (same for height). The `run_snake` function executes `constants.py` first, making its variables available in `snake.py`.",
+    "check_var": "window_size",
+    "expected": "(600, 600)",
+    "xp": 80
+  },
+  {
+    "title": "Snake Echo 2: Game Loop",
+    "description": "Let's set up the basic game loop structure in **snake.py**. Import pygame and initialize it. Create the main loop that:\n\n1. Creates a display with our window_size\n2. Gives the window a title 'Snake Echo'\n3. Creates a clock for controlling game speed\n4. Runs a basic game loop that:\n   - Processes events\n   - Handles the quit event\n   - Updates the display\n   - Maintains 10 FPS (Define FPS in **constants.py**)\n\nSetup the basic structure only. No need for actual snake movement yet.",
+    "hint": "Make sure to initialize pygame with pygame.init(), create a clock with pygame.time.Clock(), define FPS in constants.py, and end the loop when pygame.QUIT event happens.",
+    "check_var": "FPS",
+    "expected": "10",
+    "xp": 100
+  },
+  {
+    "title": "Snake Echo 3: Snake Class",
+    "description": "Create a Snake class in a new file called **snake_class.py**.\n\nThe Snake class should have:\n• __init__ method that initializes the snake at center of screen\n• A positions list storing (x,y) coordinates of each segment\n• A direction attribute (initially 'RIGHT')\n• A draw method (can be empty for now)\n• An update method (can be empty for now)\n\nIn **snake.py**, create a snake instance from this class before your game loop.",
+    "hint": "The Snake's center position should be (GRID_WIDTH//2, GRID_HEIGHT//2). Use constants from constants.py. Define the class in snake_class.py and instantiate it in snake.py.",
+    "check_var": "snake.direction",
+    "expected": "RIGHT",
+    "xp": 100
+  },
+  {
+    "title": "Snake Echo 4: Colors & Drawing",
+    "description": "Add colors to **constants.py**:\n• BLACK = (0, 0, 0) \n• GREEN = (0, 255, 0)\n• RED = (255, 0, 0)\n• WHITE = (255, 255, 255)\n\nModify **snake.py** to fill the screen with BLACK in each iteration of the game loop.\n\nUpdate the Snake class's draw method in **snake_class.py** to draw a green rectangle for each segment. Use pygame.draw.rect(), GREEN, and multiply grid coordinates by CELL_SIZE.",
+    "hint": "For each segment at (x,y), draw a rectangle at (x*CELL_SIZE, y*CELL_SIZE) with width/height CELL_SIZE. Remember to import GREEN into snake_class.py if needed, or ensure it's defined globally by the runner.",
+    "check_var": "GREEN",
+    "expected": "(0, 255, 0)",
+    "xp": 100
+  },
+  {
+    "title": "Snake Echo 5: Movement",
+    "description": "Implement snake movement in **snake_class.py**:\n\n1. Update the Snake class's update method to move the snake based on its direction:\n   • Create a new head position based on the current head and direction\n   • Add the new head to the beginning of positions list\n   • Remove the last segment (the tail) to maintain length\n\n2. Update **snake.py** to call snake.update() and snake.draw(screen) in the game loop (though the loop isn't fully run by the checker).",
+    "hint": "Use positions.insert(0, new_head) and positions.pop(). The checker will verify if the `update` method exists on your snake object.",
+    "check_var": "method:snake.update",
+    "expected": "exists",
+    "xp": 120
+  },
+  {
+    "title": "Snake Echo 6: Keyboard Controls",
+    "description": "Let's add keyboard controls to **snake.py**:\n\n1. In the event loop, detect key presses (pygame.KEYDOWN events)\n2. Based on arrow keys (pygame.K_UP, etc.), call a method on the snake object to change its direction (e.g., `snake.change_direction('UP')`).\n\n3. Implement the `change_direction` method in **snake_class.py**. Add validation so the snake can't reverse direction (e.g., can't go LEFT when moving RIGHT).",
+    "hint": "Check the current direction before changing. The checker will verify if the `change_direction` method exists on your snake object.",
+    "check_var": "method:snake.change_direction",
+    "expected": "exists",
+    "xp": 120
+  },
+  {
+    "title": "Snake Echo 7: Food",
+    "description": "Create a new file **food.py** with a Food class:\n\n1. The Food class should have:\n   • A position (x, y) on the grid\n   • A draw method to draw a red rectangle\n   • A reset method to move to a random position\n\n2. In **snake.py**, create a food instance\n3. Call food.draw(screen) in the game loop (though the loop isn't fully run by the checker).\n\nUse the random module for positioning.",
+    "hint": "Use random.randint(0, GRID_WIDTH-1) for x, similar for y. Ensure the Food class and its methods are defined.",
+    "check_var": "RED",
+    "expected": "(255, 0, 0)",
+    "xp": 120
+  },
+  {
+    "title": "Snake Echo 8: Collision Detection",
+    "description": "Implement collision detection methods in **snake_class.py**:\n\n1. Add `check_wall_collision` method: Returns True if the snake's head is outside grid boundaries (0 to GRID_WIDTH-1, 0 to GRID_HEIGHT-1).\n2. Add `check_self_collision` method: Returns True if the snake's head position is also in the rest of its body segments (positions[1:]).\n\n3. In **snake.py** (within the loop, though not fully run by checker): Check these collisions. If collision occurs, set a `game_over` flag.\n4. Also check for food collision (head position == food position). If true, call a `snake.grow()` method and `food.reset()`.\n5. Implement the `grow` method in **snake_class.py**: It should make the snake longer (hint: don't pop the tail when growing).",
+    "hint": "The checker will verify if the `check_wall_collision`, `check_self_collision`, and `grow` methods exist on your snake object.",
+    "check_var": "method:snake.check_wall_collision,method:snake.check_self_collision,method:snake.grow",
+    "expected": "exists",
+    "xp": 150
+  },
+  {
+    "title": "Snake Echo 9: Score Display",
+    "description": "Let's add a score system:\n\n1. Add these to **constants.py**:\n   • FONT_SIZE = 24\n   • SCORE_POS = (10, 10)\n\n2. In **snake.py**:\n   • Initialize pygame's font module (`pygame.font.init()`)\n   • Load a font (e.g., `pygame.font.SysFont(None, FONT_SIZE)`)\n   • Create a `score` variable initialized to 0.\n   • Increment `score` when snake eats food.\n   • Render and display the score on screen (e.g., `font.render(...)` and `screen.blit(...)`).",
+    "hint": "The checker will verify the SCORE_POS constant and that a `score` variable is initialized (likely to 0) in snake.py.",
+    "check_var": "SCORE_POS,score",
+    "expected": "(10, 10),0",
+    "xp": 120
+  },
+  {
+    "title": "Snake Echo 10: Game Over & Restart",
+    "description": "Complete your Snake game by adding game over functionality:\n\n1. In **snake.py**, create a `game_over` flag, initially False. Set it to True when a collision occurs.\n2. When `game_over` is True:\n   • Display 'GAME OVER' text.\n   • Show the final score.\n   • Display 'Press SPACE to restart' text.\n3. Add restart functionality: If `game_over` is True and SPACE is pressed, call a `reset_game()` function.\n4. Implement `reset_game()` in **snake.py**: This function should reset the snake object, food object, score, and the `game_over` flag.",
+    "hint": "The checker will verify that a `game_over` variable is initialized to False in snake.py.",
+    "check_var": "game_over",
+    "expected": "False",
+    "xp": 200
+  }
+]

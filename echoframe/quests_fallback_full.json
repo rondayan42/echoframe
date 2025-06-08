@@ -1,0 +1,163 @@
+[
+    {
+      "title": "Echo 1: The First Signal",
+      "description": "A dormant terminal in the ruins of Zone 0 blinks once. You must awaken it with a phrase. Print the exact phrase: 'FREQ signal received'.",
+      "hint": "Use the print() function to transmit a message.",
+      "check_var": "__output__",
+      "expected": "FREQ signal received",
+      "xp": 50
+    },
+    {
+      "title": "Echo 1X: Custom Transmission",
+      "description": "The network is listening. Use the print() function to send a custom phrase. Print exactly: 'Echoframe initialized'.",
+      "hint": "Use print('Echoframe initialized')",
+      "check_var": "__output__",
+      "expected": "Echoframe initialized",
+      "xp": 70
+    },
+    {
+      "title": "Echo 2: Variables of Intent",
+      "description": "Your intent must be encoded. Declare a variable named core and assign it the value 'Echoframe'.",
+      "hint": "core = 'Echoframe'",
+      "check_var": "core",
+      "expected": "Echoframe",
+      "xp": 50
+    },
+    {
+      "title": "Echo 2X: Multi-Signal Assignment",
+      "description": "Embed three pulses: op1='Ping', op2='Trace', op3='Relay'. Reveal op2 with a print command.",
+      "hint": "Declare all 3, then use print(op2)",
+      "check_var": "__output__",
+      "expected": "Trace",
+      "xp": 70
+    },
+    {
+      "title": "Echo 3: The Pulse Loop",
+      "description": "A broken node emits pulses irregularly. Stabilize it. Use a for loop to print 0, 1, and 2, each on a new line.",
+      "hint": "Use for i in range(3): print(i)",
+      "check_var": "__output__",
+      "expected": "0\n1\n2",
+      "xp": 50
+    },
+    {
+      "title": "Echo 3X: Loop Reversal",
+      "description": "The rhythm must reverse. Use a for loop to print 3, 2, 1, each on a new line.",
+      "hint": "Use range(3, 0, -1)",
+      "check_var": "__output__",
+      "expected": "3\n2\n1",
+      "xp": 70
+    },
+    {
+      "title": "Echo 4: Gate Control",
+      "description": "Only the admin has clearance. Set user = 'admin'. Use an if-else block to grant 'Access Granted' to auth.",
+      "hint": "Use if user == 'admin': auth = 'Access Granted'",
+      "check_var": "auth",
+      "expected": "Access Granted",
+      "xp": 50
+    },
+    {
+      "title": "Echo 4X: Conditional Relay",
+      "description": "Rank check: assign rank = 'technician'. If not admin, access is 'limited'. Print access.",
+      "hint": "Use if-else logic and print(access)",
+      "check_var": "__output__",
+      "expected": "limited",
+      "xp": 70
+    },
+    {
+      "title": "Echo 5: Signal Function",
+      "description": "Transmit a clean ping. Define transmit() to return 'Signal Clear'. Assign its result to status.",
+      "hint": "def transmit(): return 'Signal Clear'",
+      "check_var": "status",
+      "expected": "Signal Clear",
+      "xp": 50
+    },
+    {
+      "title": "Echo 5X: Function Duel",
+      "description": "There are two signals. Define ping() -> 'beep', pong() -> 'boop'. Assign pong() result to signal.",
+      "hint": "signal = pong()",
+      "check_var": "signal",
+      "expected": "boop",
+      "xp": 70
+    },
+    {
+      "title": "Echo 6: Array Initialization",
+      "description": "Three nodes must be aligned. Create a list with [1, 2, 3] and print it.",
+      "hint": "Use nodes = [1, 2, 3]; print(nodes)",
+      "check_var": "__output__",
+      "expected": "[1, 2, 3]",
+      "xp": 50
+    },
+    {
+      "title": "Echo 6X: Array Expansion",
+      "description": "Patch the array. Start with [1, 2, 3], append 4, then print the list.",
+      "hint": "Use .append(4)",
+      "check_var": "__output__",
+      "expected": "[1, 2, 3, 4]",
+      "xp": 70
+    },
+    {
+      "title": "Echo 7: Data Cipher",
+      "description": "Legacy cipher detected. Create cipher = {'a': 1, 'b': 2}. Assign cipher['a'] to decoded.",
+      "hint": "decoded = cipher['a']",
+      "check_var": "decoded",
+      "expected": "1",
+      "xp": 50
+    },
+    {
+      "title": "Echo 7X: Cipher Override",
+      "description": "The map must be rewritten. Set cipher['b'] to 9 and store that in mod.",
+      "hint": "cipher['b'] = 9; mod = cipher['b']",
+      "check_var": "mod",
+      "expected": "9",
+      "xp": 70
+    },
+    {
+      "title": "Echo 8: Loop Summation",
+      "description": "Combine frequencies. Loop through 1, 2, 3 and store their sum in total.",
+      "hint": "total += i inside a loop",
+      "check_var": "total",
+      "expected": "6",
+      "xp": 50
+    },
+    {
+      "title": "Echo 8X: Loop Power",
+      "description": "Amplify the stream. Sum the squares of 1 through 3 and store in total.",
+      "hint": "i ** 2 for each value in loop",
+      "check_var": "total",
+      "expected": "14",
+      "xp": 70
+    },
+    {
+      "title": "Echo 9: While Beacon",
+      "description": "While-loop beacon is glitching. Print 1, 2, and 3 using a while loop.",
+      "hint": "Start with i = 1; loop while i <= 3",
+      "check_var": "__output__",
+      "expected": "1\n2\n3",
+      "xp": 50
+    },
+    {
+      "title": "Echo 9X: Controlled Drift",
+      "description": "Loop needs precision. Use a while loop to print 2, 4, 6.",
+      "hint": "Increment by 2 starting from 2",
+      "check_var": "__output__",
+      "expected": "2\n4\n6",
+      "xp": 70
+    },
+    {
+      "title": "Echo 10: Code Conclusion",
+      "description": "The final routine. Define identify() returning 'Code Complete'. Store result in flag.",
+      "hint": "flag = identify()",
+      "check_var": "flag",
+      "expected": "Code Complete",
+      "xp": 50
+    },
+    {
+        "title": "Echo 10X: Final Echo",
+        "description": "Embed your name in the final message. Define a function returning 'Welcome, [name]'. Use '{{ snaker }}'. Store result in flag.",
+        "hint": "Use f-strings or concatenation",
+        "check_var": "flag",
+        "expected": "Welcome, {{ snaker }}",
+        "xp": 70
+    }
+  ]
+  
