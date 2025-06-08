@@ -26,11 +26,11 @@ import student_driven_snake
 def ensure_proper_formatting(filename, content):
     """
     Ensure proper formatting of file content, especially for food.py which may have formatting issues.
-    
+
     Args:
         filename: The name of the file
         content: The content to format
-    
+
     Returns:
         Properly formatted content
     """
@@ -39,10 +39,10 @@ def ensure_proper_formatting(filename, content):
         # Check if all content appears to be on a single line
         if content.count('\n') < 5:  # Normal food.py should have many line breaks
             # Extract key components from the content
-            
+
             # Look for class definition and method definitions using regular expressions
             import re
-            
+
             # Format the file properly with line breaks
             formatted_content = """# food.py: Contains the Food class definition
 import pygame
@@ -53,54 +53,54 @@ class Food:
     def __init__(self):
         # Initialize with a random position
         self.reset()
-        
+
     def draw(self, screen):
         # Draw a red rectangle for the food
         x, y = self.position
         pygame.draw.rect(screen, RED, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        
+
     def reset(self):
         # Place food at a new random position on the grid
         self.position = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
 """
             return formatted_content
-    
+
     # For most files, no special formatting needed
     return content
 
 def create_or_update_user_snake_files(username, echo_level):
     """
     Create or update the user's snake files based on their current echo level.
-    
+
     Args:
         username: The username of the snaker
         echo_level: Integer representing the current echo level (0-9)
-    
+
     Returns:
         Dictionary of files that should be shown in the editor for the current echo level
     """
     if not username:
         print(f"Invalid username: {username}")
         return {}
-    
+
     # Safely determine valid_echo_level within the range of available starter code
     max_echo_level = len(SNAKE_STARTER_CODE) - 1
     if max_echo_level < 0:
         print("Error: SNAKE_STARTER_CODE is empty. Cannot create files.")
         return {}
-        
+
     valid_echo_level = max(0, min(echo_level, max_echo_level))
     if echo_level != valid_echo_level:
         print(f"Warning: Echo level {echo_level} out of range, using echo level {valid_echo_level} instead.")
-    
+
     # Create the user's base directory
     user_base_dir = os.path.join('user_data', 'snake_code', username)
     os.makedirs(user_base_dir, exist_ok=True)
-    
+
     # Create a specific directory for this echo level
     echo_dir = os.path.join(user_base_dir, f'snake_echo_{valid_echo_level+1}')
     os.makedirs(echo_dir, exist_ok=True)
-    
+
     # Get starter code for the current echo level
     try:
         starter_files = SNAKE_STARTER_CODE[valid_echo_level]
@@ -112,16 +112,16 @@ def create_or_update_user_snake_files(username, echo_level):
         else:
             print("Error: SNAKE_STARTER_CODE is empty. Cannot create files.")
             return {}
-    
+
     editor_files = {}
-    
+
     # For each file in the starter code, create or update the user's file
     for filename, content in starter_files.items():
         # Ensure proper formatting, especially for food.py
         formatted_content = ensure_proper_formatting(filename, content)
-        
+
         file_path = os.path.join(echo_dir, filename)
-        
+
         # Only create the file if it doesn't exist yet
         if not os.path.exists(file_path):
             with open(file_path, 'w') as f:
@@ -131,43 +131,43 @@ def create_or_update_user_snake_files(username, echo_level):
             # Check if existing file needs formatting fix
             with open(file_path, 'r') as f:
                 existing_content = f.read()
-            
+
             if filename == 'food.py' and existing_content.count('\n') < 5:
                 # Fix existing malformatted food.py file
                 with open(file_path, 'w') as f:
                     f.write(formatted_content)
                 print(f"Fixed formatting in existing {file_path}")
-        
+
         # Read the current content (either new or existing)
         with open(file_path, 'r') as f:
             current_content = f.read()
-        
+
         # Add to the dictionary of files to show in the editor
         editor_files[filename] = current_content
-    
+
     return editor_files
 
 def get_user_snake_files(username, echo_level=None):
     """
     Get all Python files from a user's snake directory.
-    
+
     Args:
         username: The username of the snaker
         echo_level: Optional integer representing the echo level (0-9).
                    If provided, only return files from that echo level's directory.
-    
+
     Returns:
         Dictionary of filename -> content for all Python files in the user's directory
     """
     if not username:
         return {}
-    
+
     user_base_dir = os.path.join('user_data', 'snake_code', username)
     if not os.path.isdir(user_base_dir):
         return {}
-    
+
     user_files = {}
-    
+
     # If echo_level is specified, only look in that echo's directory
     if echo_level is not None and 0 <= echo_level <= 9:
         echo_dir = os.path.join(user_base_dir, f'snake_echo_{echo_level+1}')
@@ -180,7 +180,7 @@ def get_user_snake_files(username, echo_level=None):
                     except Exception as e:
                         print(f"Error reading user file {filename}: {e}")
         return user_files
-    
+
     # Otherwise, look through all echo directories
     for i in range(10):  # 0-9 echo levels
         echo_dir = os.path.join(user_base_dir, f'snake_echo_{i+1}')
@@ -194,7 +194,7 @@ def get_user_snake_files(username, echo_level=None):
                             user_files[key] = f.read()
                     except Exception as e:
                         print(f"Error reading user file {echo_dir}/{filename}: {e}")
-    
+
     # Also include any files in the root of the user's directory for backward compatibility
     for filename in os.listdir(user_base_dir):
         if filename.endswith('.py'):
@@ -203,31 +203,31 @@ def get_user_snake_files(username, echo_level=None):
                     user_files[f"root/{filename}"] = f.read()
             except Exception as e:
                 print(f"Error reading user file {filename}: {e}")
-    
+
     return user_files
 
 def get_echo_level_files(username, echo_level):
     """
     Get the files that should be shown for a specific echo level.
-    
+
     Args:
         username: The username of the snaker
         echo_level: Integer representing the echo level (0-9)
-    
+
     Returns:
         Dictionary of filename -> content for the specified echo level
     """
     # Ensure echo_level is within valid range for SNAKE_STARTER_CODE
     if not username:
         return {}
-        
+
     # Safely determine valid_echo_level within the range of available starter code
     max_echo_level = len(SNAKE_STARTER_CODE) - 1
     valid_echo_level = max(0, min(echo_level, max_echo_level))
-    
+
     if echo_level != valid_echo_level:
         print(f"Warning: Echo level {echo_level} out of range, using echo level {valid_echo_level} instead.")
-    
+
     # Map of files that should be shown for each echo level
     echo_files = {
         0: {'constants.py', 'snake.py'},  # Echo 1: Define the Grid
@@ -241,68 +241,87 @@ def get_echo_level_files(username, echo_level):
         8: {'constants.py', 'snake.py', 'snake_class.py', 'food.py'},  # Echo 9: Score Display
         9: {'constants.py', 'snake.py', 'snake_class.py', 'food.py'},  # Echo 10: Game Over & Restart
     }
-    
+
     # Specific directory for this echo level
     echo_dir = os.path.join('user_data', 'snake_code', username, f'snake_echo_{valid_echo_level+1}')
-    
+
     # Check if the directory exists
     if not os.path.isdir(echo_dir):
         # If directory doesn't exist, create it and its files from starter code
         return create_or_update_user_snake_files(username, valid_echo_level)
-    
-    # Get files from the echo-specific directory
+
+    # Get files for the specified echo level, always sourcing from SNAKE_STARTER_CODE
     filtered_files = {}
-    for filename in echo_files.get(valid_echo_level, {}):
+    # Ensure echo_dir exists for writing updated files
+    os.makedirs(echo_dir, exist_ok=True)
+
+    for filename in echo_files.get(valid_echo_level, {}): # These are the filenames expected for the current echo level
         file_path = os.path.join(echo_dir, filename)
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                filtered_files[filename] = f.read()
-        else:
-            # If a required file is missing, create it from the starter code
-            try:
-                starter_files = SNAKE_STARTER_CODE[valid_echo_level]
-                if filename in starter_files:
-                    # Create the file in the echo-specific directory
-                    os.makedirs(echo_dir, exist_ok=True)
-                    with open(file_path, 'w') as f:
-                        f.write(starter_files[filename])
-                    
-                    filtered_files[filename] = starter_files[filename]
-            except IndexError:
-                print(f"Error: SNAKE_STARTER_CODE does not have index {valid_echo_level}. Using fallback.")
-                # Use echo level 0 as fallback if the specified level doesn't exist
-                if 0 < len(SNAKE_STARTER_CODE) and filename in SNAKE_STARTER_CODE[0]:
-                    os.makedirs(echo_dir, exist_ok=True)
-                    with open(file_path, 'w') as f:
-                        f.write(SNAKE_STARTER_CODE[0][filename])
-                    
-                    filtered_files[filename] = SNAKE_STARTER_CODE[0][filename]
-    
+
+        try:
+            # Always fetch the content from the canonical SNAKE_STARTER_CODE
+            # Ensure valid_echo_level is within bounds for SNAKE_STARTER_CODE
+            if not (0 <= valid_echo_level < len(SNAKE_STARTER_CODE)):
+                raise IndexError(f"valid_echo_level {valid_echo_level} is out of range for SNAKE_STARTER_CODE.")
+
+            if filename not in SNAKE_STARTER_CODE[valid_echo_level]:
+                 # This means a filename is listed in echo_files for this level,
+                 # but not actually present in the SNAKE_STARTER_CODE definition for this level.
+                 # This indicates a mismatch between echo_files mapping and SNAKE_STARTER_CODE content.
+                 print(f"Warning: File '{filename}' is expected for echo_level {valid_echo_level} but not found in SNAKE_STARTER_CODE[{valid_echo_level}]. Skipping this file.")
+                 continue # Skip this file
+
+            starter_content = SNAKE_STARTER_CODE[valid_echo_level][filename]
+
+            # Apply any necessary formatting (e.g., for food.py)
+            formatted_content = ensure_proper_formatting(filename, starter_content)
+
+            # Write/overwrite the file in the user's echo-specific directory
+            # This ensures the user's local copy is always up-to-date with the starter code.
+            with open(file_path, 'w') as f:
+                f.write(formatted_content)
+
+            # Add the fresh content to the files to be returned (e.g., for the editor)
+            filtered_files[filename] = formatted_content
+            # print(f"Refreshed file: {file_path} for echo level {valid_echo_level} from starter code.")
+
+        except IndexError as e:
+            # This typically means valid_echo_level is out of range for SNAKE_STARTER_CODE
+            print(f"Error processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}. Check SNAKE_STARTER_CODE definition.")
+            # As a fallback, could try to load from echo level 0 or skip, but ideally SNAKE_STARTER_CODE should be complete.
+            # For now, if there's an error, the file might be missing from filtered_files.
+        except KeyError as e:
+            # This means 'filename' is not a key in SNAKE_STARTER_CODE[valid_echo_level]
+            print(f"Error: File '{filename}' (from echo_files) not found as a key in SNAKE_STARTER_CODE[{valid_echo_level}]. Mismatch in configuration? {str(e)}")
+        except Exception as e:
+            # Catch any other unexpected errors during file processing
+            print(f"An unexpected error occurred while processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}")
+
     return filtered_files
 
 def get_user_snake_echo_level(username):
     """
     Determine the current snake echo level for a user based on completed quests.
-    
+
     Args:
         username: The username of the snaker
-    
+
     Returns:
         Integer representing the current echo level (0-9)
     """
     if not username:
         return 0
-    
+
     # Load user data from persistent storage
     user_data = load_pet_data(username)
-    
+
     # Get completed quests
     completed = user_data.get('completed', [])
-    
+
     # Check if the user has completed any snake quests
     # Snake quests start at index TOTAL_BEGINNER
     snake_quests_completed = [qid for qid in completed if qid >= TOTAL_BEGINNER]
-    
+
     # Current echo level is the number of completed snake quests
     # If no snake quests are completed, check if they've seen the intro
     if not snake_quests_completed:
@@ -311,7 +330,7 @@ def get_user_snake_echo_level(username):
             return 0
         else:
             return -1  # Not started snake echo arc yet
-    
+
     # Return the number of completed snake quests (0-indexed)
     # The echo level is equal to the number of completed quests
     # because we want them to work on the next echo
@@ -322,12 +341,12 @@ def ensure_food_position_valid(food, grid_width, grid_height, default_pos=None):
     """Verify food position and fix if invalid."""
     if not default_pos:
         default_pos = [grid_width // 2, grid_height // 2]
-        
+
     try:
         if not hasattr(food, 'position'):
             food.position = default_pos
             return
-            
+
         # Check if position is within bounds
         food_x, food_y = food.position
         if not (0 <= food_x < grid_width and 0 <= food_y < grid_height):
@@ -370,8 +389,8 @@ setup_auto_login(app)
 app.secret_key = "echoframe-core-sigil" # Ensure you have a strong secret key
 # Use a very stable configuration with long timeouts
 socketio = SocketIO(
-    app, 
-    async_mode='eventlet', 
+    app,
+    async_mode='eventlet',
     ping_timeout=60000,  # 60 seconds timeout - proper value instead of extremely large one
     ping_interval=25,    # Standard ping interval
     cors_allowed_origins="*",
@@ -873,7 +892,7 @@ def quest(qid):
     quest_obj = apply_snaker_ctx(quest_data, username)
     # Get study uplink document for the quest
     study_doc = uplinks.get(idx, "No Study Uplink available for this quest.")
-    
+
     # Get starter code files for snake quests
     starter_files = {}
     if snake_mode:
@@ -882,18 +901,18 @@ def quest(qid):
         if echo_level == -1:  # User hasn't started snake arc yet
             mark_snake_intro_seen(username)  # Mark as seen so they can proceed
             echo_level = 0
-        
+
         # In snake quests, echo level should correspond to the quest index in the snake quest list
         # Handle cases where idx is out of bounds for SNAKE_STARTER_CODE
         max_echo_level = len(SNAKE_STARTER_CODE) - 1
         echo_idx = max(0, min(idx, max_echo_level))
-        
+
         if idx != echo_idx:
             print(f"Warning: Snake quest index {idx} is out of bounds for starter code. Using echo level {echo_idx} instead.")
-        
+
         # Get the files for this specific echo level
         starter_files = get_echo_level_files(username, echo_idx)
-    
+
     # Get active Armory item CSS classes
     active_item_classes = get_active_item_classes()
 
@@ -930,7 +949,7 @@ def quest(qid):
             except Exception as e:
                 print("Error serializing files_json:", e)
                 files_json = {}
-                
+
             # Save the user's code to their directory
             user_dir = os.path.join('user_data', 'snake_code', username)
             os.makedirs(user_dir, exist_ok=True)
@@ -941,7 +960,7 @@ def quest(qid):
                     print(f"Saved user's code to {os.path.join(user_dir, filename)}")
                 except Exception as e:
                     print(f"Error saving user code: {e}")
-                
+
             # Execute the snake code (multiple files)
             result_str, dbg, err = run_snake(files_json, quest_data.get("check_var"))
             debug_output = dbg; error = err # Store output and error
@@ -1021,7 +1040,7 @@ def quest(qid):
             save_pet_data(username, user_data) # Save updated data to persistent storage
             return redirect(url_for("home")) # Redirect home on success
         else:
-            # Ensure files_json is a valid, non-empty dictionary 
+            # Ensure files_json is a valid, non-empty dictionary
             if snake_mode:
                 try:
                     if not isinstance(files_json, dict):
@@ -1031,15 +1050,15 @@ def quest(qid):
                 except Exception as e:
                     print(f"Error serializing files_json before render_template: {e}")
                     files_json = {}
-                
+
                 # Ensure files is never empty
                 if not files_json:
                     files_json = {'main.py': '# Start your snake code here\n'}
-            
+
             # Debug: print the content being passed to template for POST case
             files_to_render = files_json if snake_mode and isinstance(files_json, dict) else starter_files
             print(f"Rendering {template} after POST with files={json.dumps(files_to_render)[:100]}...")
-            
+
             return render_template(
                 template, quest=quest_obj, xp=xp, level=level, study_doc=study_doc,
                 files=files_to_render,
@@ -1058,14 +1077,14 @@ def quest(qid):
     except Exception as e:
         print(f"Error serializing starter_files: {e}")
         starter_files = {}
-    
+
     # Ensure files is always a valid, non-empty dictionary
     if not starter_files:
         starter_files = {'main.py': '# Start your snake code here\n'}
-    
+
     # Debug: print the content being passed to template
     print(f"Rendering {template} with files={json.dumps(starter_files)[:100]}...")
-    
+
     return render_template(
         template, quest=quest_obj, xp=xp, level=level, study_doc=study_doc,
         files=starter_files, last_code="", debug_output="", error_line=None, error=None,
@@ -1606,7 +1625,7 @@ if __name__ == "__main__":
         # Try different ports if the default port is in use
         ports_to_try = [5001, 5002, 5003, 5004, 5005]
         server_started = False
-        
+
         for port in ports_to_try:
             try:
                 print(f"Attempting to start server on port {port}...")
@@ -1618,10 +1637,9 @@ if __name__ == "__main__":
                     print(f"Port {port} is already in use, trying next port...")
                 else:
                     raise
-        
+
         if not server_started:
             print(f"Failed to start server on any of the attempted ports: {ports_to_try}")
     except Exception as run_err:
         print(f"Failed to start server: {run_err}")
         traceback.print_exc()
-
