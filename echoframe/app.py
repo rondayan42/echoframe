@@ -250,52 +250,73 @@ def get_echo_level_files(username, echo_level):
         # If directory doesn't exist, create it and its files from starter code
         return create_or_update_user_snake_files(username, valid_echo_level)
 
-    # Get files for the specified echo level, always sourcing from SNAKE_STARTER_CODE
+    # Get files for the specified echo level
     filtered_files = {}
     # Ensure echo_dir exists for writing updated files
-    os.makedirs(echo_dir, exist_ok=True)
+    os.makedirs(echo_dir, exist_ok=True) # Ensure echo_dir is created before trying to write files
 
     for filename in echo_files.get(valid_echo_level, {}): # These are the filenames expected for the current echo level
         file_path = os.path.join(echo_dir, filename)
+        content_to_use = None
+        source_description = "" # For logging/debugging
 
         try:
-            # Always fetch the content from the canonical SNAKE_STARTER_CODE
-            # Ensure valid_echo_level is within bounds for SNAKE_STARTER_CODE
+            # Ensure valid_echo_level is within bounds for SNAKE_STARTER_CODE itself
             if not (0 <= valid_echo_level < len(SNAKE_STARTER_CODE)):
-                raise IndexError(f"valid_echo_level {valid_echo_level} is out of range for SNAKE_STARTER_CODE.")
+                raise IndexError(f"valid_echo_level {valid_echo_level} is out of range for SNAKE_STARTER_CODE array.")
 
+            # Check if the filename is even supposed to be in SNAKE_STARTER_CODE for this level
+            # This guards against misconfigurations in 'echo_files'
             if filename not in SNAKE_STARTER_CODE[valid_echo_level]:
-                 # This means a filename is listed in echo_files for this level,
-                 # but not actually present in the SNAKE_STARTER_CODE definition for this level.
-                 # This indicates a mismatch between echo_files mapping and SNAKE_STARTER_CODE content.
-                 print(f"Warning: File '{filename}' is expected for echo_level {valid_echo_level} but not found in SNAKE_STARTER_CODE[{valid_echo_level}]. Skipping this file.")
-                 continue # Skip this file
+                print(f"Warning: File '{filename}' is expected per 'echo_files' for echo_level {valid_echo_level}, but it's not defined in SNAKE_STARTER_CODE[{valid_echo_level}]. Trying to load from user's directory or skipping.")
+                if os.path.exists(file_path):
+                    with open(file_path, 'r') as f:
+                        content_to_use = f.read()
+                    source_description = "existing user file (starter definition missing)"
+                else:
+                    print(f"Warning: File '{filename}' also not found in user directory {file_path}. Skipping this file.")
+                    continue # Skip this file entirely
+            else:
+                # Filename exists in SNAKE_STARTER_CODE for this level
+                starter_content = SNAKE_STARTER_CODE[valid_echo_level][filename]
+                formatted_starter_content = ensure_proper_formatting(filename, starter_content)
 
-            starter_content = SNAKE_STARTER_CODE[valid_echo_level][filename]
+                if filename == "constants.py":
+                    # For constants.py, always use the starter content and overwrite
+                    content_to_use = formatted_starter_content
+                    with open(file_path, 'w') as f:
+                        f.write(content_to_use)
+                    source_description = "starter code (constants.py - always refresh)"
+                else:
+                    # For other files, prioritize user's existing file
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r') as f:
+                            content_to_use = f.read()
+                        source_description = "existing user file"
+                        # Optional: Could compare with starter_content and decide to refresh if starter is "newer"
+                        # For now, simple "if exists, use" for student-editable files.
+                    else:
+                        # File doesn't exist in user's dir, so use starter content and write it
+                        content_to_use = formatted_starter_content
+                        with open(file_path, 'w') as f:
+                            f.write(content_to_use)
+                        source_description = "starter code (user file did not exist)"
 
-            # Apply any necessary formatting (e.g., for food.py)
-            formatted_content = ensure_proper_formatting(filename, starter_content)
-
-            # Write/overwrite the file in the user's echo-specific directory
-            # This ensures the user's local copy is always up-to-date with the starter code.
-            with open(file_path, 'w') as f:
-                f.write(formatted_content)
-
-            # Add the fresh content to the files to be returned (e.g., for the editor)
-            filtered_files[filename] = formatted_content
-            # print(f"Refreshed file: {file_path} for echo level {valid_echo_level} from starter code.")
+            if content_to_use is not None:
+                filtered_files[filename] = content_to_use
+                # print(f"File '{file_path}': using {source_description}.")
 
         except IndexError as e:
-            # This typically means valid_echo_level is out of range for SNAKE_STARTER_CODE
-            print(f"Error processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}. Check SNAKE_STARTER_CODE definition.")
-            # As a fallback, could try to load from echo level 0 or skip, but ideally SNAKE_STARTER_CODE should be complete.
-            # For now, if there's an error, the file might be missing from filtered_files.
+            # This typically means valid_echo_level is out of range for SNAKE_STARTER_CODE overall
+            print(f"Error (IndexError) processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}. Check SNAKE_STARTER_CODE definition or valid_echo_level calculation.")
         except KeyError as e:
-            # This means 'filename' is not a key in SNAKE_STARTER_CODE[valid_echo_level]
-            print(f"Error: File '{filename}' (from echo_files) not found as a key in SNAKE_STARTER_CODE[{valid_echo_level}]. Mismatch in configuration? {str(e)}")
+            # This means 'filename' was expected (e.g. from echo_files) but not a key in SNAKE_STARTER_CODE[valid_echo_level]
+            # This path should ideally be caught by the explicit check `if filename not in SNAKE_STARTER_CODE[valid_echo_level]:` above.
+            print(f"Error (KeyError) processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}. Mismatch between 'echo_files' and SNAKE_STARTER_CODE content?")
         except Exception as e:
-            # Catch any other unexpected errors during file processing
+            # Catch any other unexpected errors during file processing for this specific file
             print(f"An unexpected error occurred while processing file '{filename}' for echo_level {valid_echo_level}: {str(e)}")
+            traceback.print_exc() # Print full traceback for unexpected errors
 
     return filtered_files
 
