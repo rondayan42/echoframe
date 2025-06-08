@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.min.js"></script>
+  <style>
+    body { font-family: monospace; background: #111; color: #00ff99; margin: 0; padding: 20px; }
+    canvas { background: #222; display: block; margin: 10px auto; border: 1px solid #444; }
+    pre { background: #000; padding: 10px; border: 1px solid #333; white-space: pre-wrap; }
+    .controls { margin: 10px 0; }
+    button { background: #111; color: #00ff99; border: 1px solid #00ff99; padding: 5px 10px; cursor: pointer; }
+    button:hover { background: #00ff99; color: #111; }
+    #log { height: 150px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>Snake Game Test</h1>
+  <div class="controls">
+    <button id="startBtn">Start Test</button>
+    <button id="stopBtn">Stop Test</button>
+    <button id="clearBtn">Clear Log</button>
+  </div>
+  <canvas id="gameCanvas" width="450" height="450"></canvas>
+  <div>
+    <h3>Current Direction: <span id="directionDisplay">None</span></h3>
+    <div>Use Arrow Keys or WASD to control the snake</div>
+  </div>
+  <h3>Debug Log:</h3>
+  <pre id="log"></pre>
+
+  <script>
+    // Game variables
+    let socket = null;
+    let isRunning = false;
+    let gameState = null;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const CELL_SIZE = 15;
+    const directionDisplay = document.getElementById('directionDisplay');
+    const logElement = document.getElementById('log');
+    
+    // Connect to socket.io server
+    function connectSocket() {
+      if (socket && socket.connected) {
+        log('Already connected');
+        return socket;
+      }
+      
+      log('Connecting to socket...');
+      socket = io();
+      
+      socket.on('connect', () => {
+        log('Socket connected: ' + socket.id);
+      });
+      
+      socket.on('disconnect', (reason) => {
+        log('Socket disconnected: ' + reason);
+        isRunning = false;
+      });
+      
+      socket.on('game_state_update', (state) => {
+        log('Game state update: ' + JSON.stringify(state).substring(0, 100) + '...');
+        gameState = state;
+        drawGame(state);
+      });
+      
+      socket.on('preview_started', (data) => {
+        log('Preview started: ' + JSON.stringify(data));
+        isRunning = true;
+      });
+      
+      socket.on('preview_stopped', (data) => {
+        log('Preview stopped: ' + JSON.stringify(data));
+        isRunning = false;
+      });
+      
+      return socket;
+    }
+    
+    // Draw the game state
+    function drawGame(state) {
+      if (!state) return;
+      
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw grid
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x <= canvas.width; x += CELL_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += CELL_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      
+      // Draw snake
+      if (state.snake && Array.isArray(state.snake)) {
+        ctx.fillStyle = '#00ff99';
+        state.snake.forEach((segment, i) => {
+          if (Array.isArray(segment) && segment.length === 2) {
+            ctx.fillRect(segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            if (i === 0) {
+              ctx.strokeStyle = '#fff';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(segment[0] * CELL_SIZE, segment[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+          }
+        });
+      }
+      
+      // Draw food
+      if (state.food && Array.isArray(state.food) && state.food.length === 2) {
+        ctx.fillStyle = '#ff5555';
+        ctx.fillRect(state.food[0] * CELL_SIZE, state.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(state.food[0] * CELL_SIZE, state.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      }
+    }
+    
+    // Log helper
+    function log(message) {
+      const time = new Date().toLocaleTimeString();
+      logElement.textContent = `[${time}] ${message}\n${logElement.textContent}`;
+    }
+    
+    // Start game test
+    document.getElementById('startBtn').addEventListener('click', () => {
+      if (!socket || !socket.connected) {
+        socket = connectSocket();
+      }
+      
+      log('Starting game test...');
+      
+      // Simple snake code for testing
+      const testFiles = {
+        'constants.py': `
+# Game dimensions
+GRID_WIDTH = 30
+GRID_HEIGHT = 30
+CELL_SIZE = 15
+SCREEN_WIDTH = GRID_WIDTH * CELL_SIZE
+SCREEN_HEIGHT = GRID_HEIGHT * CELL_SIZE
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+GRAY = (128, 128, 128)
+
+# Directions
+UP = 'UP'
+DOWN = 'DOWN'
+LEFT = 'LEFT'
+RIGHT = 'RIGHT'
+`,
+        'snake.py': `
+import pygame
+import sys
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Set up the display
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('Snake Echo Test')
+
+# Initialize clock
+clock = pygame.time.Clock()
+
+# Initialize game variables
+score = 0
+game_over = False
+
+# Create snake and food
+class Snake:
+    def __init__(self):
+        self.positions = [[GRID_WIDTH // 2, GRID_HEIGHT // 2]]
+        self.direction = RIGHT
+        self.grow = False
+        
+    def update(self):
+        head_x, head_y = self.positions[0]
+        
+        if self.direction == UP:
+            new_head = [head_x, head_y - 1]
+        elif self.direction == DOWN:
+            new_head = [head_x, head_y + 1]
+        elif self.direction == LEFT:
+            new_head = [head_x - 1, head_y]
+        else:  # RIGHT
+            new_head = [head_x + 1, head_y]
+            
+        self.positions.insert(0, new_head)
+        if not self.grow:
+            self.positions.pop()
+        else:
+            self.grow = False
+            
+    def check_food_collision(self, food_pos):
+        head = self.positions[0]
+        return head[0] == food_pos[0] and head[1] == food_pos[1]
+        
+    def check_self_collision(self):
+        head = self.positions[0]
+        return head in self.positions[1:]
+        
+    def check_wall_collision(self):
+        head_x, head_y = self.positions[0]
+        return head_x < 0 or head_x >= GRID_WIDTH or head_y < 0 or head_y >= GRID_HEIGHT
+        
+    def grow_snake(self):
+        self.grow = True
+
+class Food:
+    def __init__(self):
+        self.position = self.get_random_position()
+        
+    def get_random_position(self):
+        return [random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)]
+        
+    def reposition(self, snake_positions):
+        self.position = self.get_random_position()
+        while self.position in snake_positions:
+            self.position = self.get_random_position()
+
+# Create instances
+snake = Snake()
+food = Food()
+
+# Game loop
+while True:
+    # Get user direction from the simulated client input
+    user_dir = get_user_direction()
+    
+    if user_dir == UP and snake.direction != DOWN:
+        snake.direction = UP
+    elif user_dir == DOWN and snake.direction != UP:
+        snake.direction = DOWN
+    elif user_dir == LEFT and snake.direction != RIGHT:
+        snake.direction = LEFT
+    elif user_dir == RIGHT and snake.direction != LEFT:
+        snake.direction = RIGHT
+    
+    # Update snake position
+    if not game_over:
+        snake.update()
+        
+        # Check collisions
+        if snake.check_food_collision(food.position):
+            snake.grow_snake()
+            food.reposition(snake.positions)
+            score += 1
+            
+        if snake.check_wall_collision() or snake.check_self_collision():
+            game_over = True
+    
+    # Tick the clock
+    clock.tick(10)
+`
+      };
+      
+      // Get current quest ID from URL
+      let qid = -1;
+      const urlMatch = window.location.pathname.match(/\/quest\/(\d+)/);
+      if (urlMatch && urlMatch[1]) {
+        qid = parseInt(urlMatch[1]);
+      }
+      
+      // Emit start preview event
+      socket.emit('start_snake_preview', { files: testFiles, qid: qid });
+    });
+    
+    // Stop game test
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      if (socket && socket.connected) {
+        log('Stopping game test...');
+        socket.emit('stop_snake_preview');
+      }
+    });
+    
+    // Clear log
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      logElement.textContent = '';
+    });
+    
+    // Handle keyboard input
+    window.addEventListener('keydown', (event) => {
+      if (!isRunning || !socket || !socket.connected) return;
+      
+      let direction = null;
+      switch (event.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          direction = 'UP';
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          direction = 'DOWN';
+          break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          direction = 'LEFT';
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          direction = 'RIGHT';
+          break;
+      }
+      
+      if (direction) {
+        event.preventDefault();
+        directionDisplay.textContent = direction;
+        log('Sending direction: ' + direction);
+        socket.emit('change_direction', { direction: direction });
+      }
+    });
+    
+    // Initialize connection on page load
+    window.addEventListener('load', () => {
+      connectSocket();
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Echoframe Console</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #000; --neon: #00ff99; --accent: #ff00cc; --slith-neon: #ffdd00; --slith-accent: #ff69b4; --slith-bg: #1a1800;} /* Base variables */
+    body { /* Let armory_styles handle body background */ color: var(--neon); font-family: 'Share Tech Mono', monospace; margin: 0; padding: 2em; }
+    a { color: #00ffff; text-decoration: none; }
+    a:hover { text-shadow: 0 0 5px #0ff; }
+
+    #clickToStart { position: fixed; inset: 0; background: #000; color: var(--neon); display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 9999; text-align: center; }
+    #startBtn { width: 80px; height: 80px; background: transparent; border: 3px solid var(--neon); position: relative; cursor: pointer; }
+    #startBtn::before { content: ''; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 4px; height: 26px; background: var(--neon); }
+    #startBtn::after { content: ''; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 40px; height: 26px; border: 4px solid var(--neon); border-top: none; }
+
+    #boot { white-space: pre-line; border-left: 3px solid #0ff; padding-left: 1em; font-size: 1.1em; animation: flicker .2s step-end infinite alternate; }
+    @keyframes flicker { 0% { opacity: 1; } 100% { opacity: .75; } }
+
+    .console { display: none; background: #111; border: 1px solid #444; padding: 2em; max-width: 900px; margin: 0 auto; box-shadow: 0 0 15px var(--neon); }
+    h1 { color: var(--accent); margin: 0 0 .5em; }
+    .stat-bar { margin-bottom: 1em; }
+
+    details { border: 1px solid #333; margin-bottom: 1.2em; background: #0d0d0d; }
+    summary { cursor: pointer; padding: .6em 1em; user-select: none; outline: none; color: #00ffaa; font-size: 1.1em; }
+    summary::marker { color: var(--accent); }
+    ul { list-style: none; margin: 0; padding: 1em 2em; }
+    li { margin-bottom: .8em; }
+
+    /* --- REMOVED Slith Pet Section Styles --- */
+
+    .slith-link { color: var(--slith-neon); text-decoration: none; transition: all 0.3s; display: inline-flex; align-items: center; }
+    .slith-link:hover { text-shadow: 0 0 10px var(--slith-neon); color: var(--slith-neon); }
+    .slith-icon { margin-right: 0.5em; font-size: 1.2em; }
+    .slith-badge { display: inline-block; background: rgba(255, 221, 0, 0.2); color: var(--slith-neon); font-size: 0.8em; padding: 2px 8px; border-radius: 10px; margin-left: 0.8em; border: 1px solid var(--slith-neon); }
+    .slith-stage-name { font-weight: bold; }
+    .snake-intro-actions { display: flex; align-items: center; gap: 1em; margin-top: 1em; }
+  </style>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/armory_styles.css') }}">
+  <script src="{{ url_for('static', filename='js/armory.js') }}"></script>
+</head>
+<body class="{{ ' '.join(active_item_classes) if active_item_classes else '' }}">
+  <div id="clickToStart">
+    <pre style="margin:0 0 1.5em;font-size:12px;line-height:1">
+    
+      ███████╗ ██████╗██╗  ██╗ ██████╗ ███████╗██████╗  █████╗ ███╗   ███╗███████╗
+      ██╔════╝██╔════╝██║  ██║██╔═══██╗██╔════╝██╔══██╗██╔══██╗████╗ ████║██╔════╝
+      █████╗  ██║     ███████║██║   ██║█████╗  ██████╔╝███████║██╔████╔██║█████╗
+      ██╔══╝  ██║     ██╔══██║██║   ██║██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝
+      ███████╗╚██████╗██║  ██║╚██████╔╝██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗
+      ╚══════╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝
+    
+    </pre>
+    <button id="startBtn"></button>
+  </div>
+
+  <div id="boot">>> Initializing Echoframe Terminal...</div>
+
+  <div id="main" class="console">
+    <h1>Welcome, Snaker {{ snaker }}</h1>
+    <div class="stat-bar">
+      <strong>XP:</strong> {{ xp }} &nbsp;|&nbsp; <strong>Level:</strong> {{ level }}
+      &nbsp;&nbsp;&nbsp;
+      <a href="{{ url_for('manifesto') }}">[Manifesto]</a> |
+      <a href="{{ url_for('armory') }}">[The Armory]</a> |
+      <a href="{{ url_for('reset') }}">[System Wipe]</a> |
+      <a href="{{ url_for('replay_cc4nis') }}">[Replay Intro]</a>
+    </div>
+
+    <details open>
+      <summary>🐣 Beginner Arc (Echo 1‑10X)</summary>
+      <ul>
+        {% for quest in quests %}
+        <li>
+          <a href="{{ url_for('quest', qid=loop.index0) }}">{{ quest.title }}</a>
+          {% if loop.index0 in session.get('completed', []) %}
+            <span style="color:#00ffaa;margin-left:.6em">[DECRYPTED, CHECK MANIFESTO]</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+
+    <details {% if snake_intro_seen %}open{% endif %}> {# Open Snake Arc if intro seen #}
+      <summary>🧪 Snake Arc (Project‑Based)</summary>
+      <ul>
+        {% for squest in snake_quests %}
+        {% set qid = quests|length + loop.index0 %}
+        <li>
+          <a href="{{ url_for('quest', qid=qid) }}">{{ squest.title }}</a>
+          {% if qid in session.get('completed', []) %}
+            <span style="color:#00ffaa;margin-left:.6em">[DECRYPTED, SLITH GROWS]</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+
+        {% if snake_intro_seen %}
+        <div class="snake-intro-actions">
+          <a href="{{ url_for('replay_snake_intro') }}" style="color:#ff1a1a;font-size:0.85em;font-weight:normal;">[Replay 2nd Arc Intro]</a>
+
+          {# --- RESTORED SLITH PET LINK --- #}
+          {% if slith_pet_enabled and session.get('completed', [])|length > 0 %} {# Check if enabled and unlocked #}
+          <a href="{{ url_for('slith_pet') }}" class="slith-link" style="font-size:0.85em;font-weight:normal;margin-left:1em;">
+            <span class="slith-icon">🐍</span>
+            <span>Slith Pet</span>
+            {# Badge logic using stage passed from Flask #}
+            {% if has_slith_pet %} {# Check if pet data exists #}
+            <span class="slith-badge">
+                <span class="slith-stage-name">
+                    {% set stage_names = ["Egg", "Hatching", "Baby", "Kid", "Teen", "Adult", "CRT", "PC", "Gaming PC", "Holo", "Cyber"] %}
+                    {{ stage_names[slith_pet_stage] if slith_pet_stage >= 0 and slith_pet_stage < stage_names|length else 'Stage ' + slith_pet_stage|string }}
+                </span>
+            </span>
+            {% endif %}
+          </a>
+          {% elif not slith_pet_enabled %}
+           <span style="font-size:0.85em; color: #888; margin-left:1em;">(Slith Pet Disabled)</span>
+          {% endif %}
+          {# --- END RESTORED SLITH PET LINK --- #}
+
+        </div>
+        {% endif %}
+      </ul>
+    </details>
+
+    {# --- REMOVED SLITH PET DISPLAY AREA --- #}
+
+  </div> {# End of main console div #}
+
+  <audio id="bootBeep" preload="auto"><source src="{{ url_for('static', filename='audio/boot_beep.mp3') }}" type="audio/mpeg"></audio>
+  <audio id="bgm" src="{{ url_for('static', filename='audio/bgm.mp3') }}" loop></audio>
+  {# Removed interaction sounds specific to web UI #}
+  {# <audio id="slithClickSound" ...> #}
+  {# <audio id="slithErrorSound" ...> #}
+  {# <audio id="slithSuccessSound" ...> #}
+
+  <button id="bgmToggle" style="position:fixed;bottom:14px;right:18px;z-index:9999;background:#111;border:1px solid var(--neon);color:var(--neon);font-family:'Share Tech Mono',monospace;font-size:.8em;padding:.35em 1em;cursor:pointer;opacity:.85">MUTE</button>
+
+  <script>
+    // Boot sequence logic (remains the same)
+    if(sessionStorage.getItem('booted')==='true'){
+      document.getElementById('clickToStart').style.display='none';
+      document.getElementById('boot').style.display='none';
+      document.getElementById('main').style.display='block';
+      document.body.classList.add('boot-complete');
+    }
+    const sequence=[
+      '>> Initializing Echoframe...','>> Connecting to FREQ Network...','>> XP protocols synchronized.','>> Mission directory loaded.\n'
+    ];
+    function startBoot(){
+      document.getElementById('clickToStart').style.display='none';
+      sessionStorage.setItem('booted','true');
+      const beep=document.getElementById('bootBeep');
+      if (beep) { beep.currentTime=0; beep.play().catch(()=>{}); }
+      setTimeout(() => { if (typeof window.tryPlayBGM === 'function') { window.tryPlayBGM(true); } }, 100);
+      let i=0;
+      (function next(){
+        if(i<sequence.length){ document.getElementById('boot').textContent+='\n'+sequence[i++]; setTimeout(next,900); }
+        else { document.getElementById('boot').style.display='none'; document.getElementById('main').style.display='block'; document.body.classList.add('boot-complete'); }
+      })();
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const startButton = document.getElementById('startBtn');
+        if (startButton) { startButton.addEventListener('click', startBoot); }
+    });
+
+    // Force style recalc on load
+    window.addEventListener('load', () => {
+      document.body.style.opacity = 0.99;
+      requestAnimationFrame(() => { document.body.style.opacity = 1; });
+    });
+
+    // --- REMOVED SLITH PET JAVASCRIPT ---
+
+  </script>
+
+  <script src="{{ url_for('static', filename='js/bgm_handler.js') }}"></script>
+
+  </body>
+</html>

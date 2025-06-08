@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ quest.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.min.js"></script>
+
+  <audio id="transmitAudio" preload="auto" src="{{ url_for('static', filename='audio/transmit.mp3') }}"></audio>
+  <audio id="typeAudio" preload="auto" src="{{ url_for('static', filename='audio/typing.mp3') }}"></audio>
+  <audio id="bgm" src="{{ url_for('static', filename='audio/bgm.mp3') }}" loop></audio>
+  <button id="bgmToggle" style="position:fixed;bottom:14px;right:18px;background:#111;border:1px solid var(--neon, #00ff99);color:var(--neon, #00ff99);padding:.35em 1em;opacity:.85;z-index:999">MUTE</button>
+  <style>
+    /* Base variables and styles */
+    :root {
+      --neon: #00ff99;
+      --bg: #0b0b0b; /* Primary background for editor/tabs/controls */
+      --fg: #00ffaa;
+      --accent: #ff00cc;
+      --run-output-height: 120px; /* REDUCED from 150px */
+      --current-study-panel-width: 420px;
+      /* Canvas/Preview Styles */
+      --preview-canvas-bg: #222;
+      --preview-grid-color: #444;
+      --preview-snake-color: var(--neon);
+      --preview-food-color: #ff4444;
+      --preview-text-color: #eee;
+      --preview-gameover-color: #ff5555;
+      /* Layout */
+      --editor-preview-gap: 0em; /* No gap */
+      --editor-width-ratio: 65%;
+      --preview-width-ratio: 35%;
+      --container-border-color: #333;
+      /* Explicit Height for Editor/Preview Area */
+      --editor-preview-height: 70vh; /* INCREASED from 60vh */
+    }
+
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--neon); font-family: 'Share Tech Mono', monospace; overflow: hidden; }
+    a { color: #00ffff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    #page { height: 100%; overflow-x: hidden; position: relative; }
+
+    /* Study Panel Styling */
+    #studyPanel { position: fixed; left: 0; top: 0; height: 100vh; background: #111; border-right: 1px solid #444; padding: 1em; overflow-y: auto; font-size: 0.9em; white-space: pre-wrap; word-break: break-word; line-height: 1.5; box-sizing: border-box; z-index: 100; max-width: 85vw; min-width: 300px; width: auto; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
+    #studyPanel.visible { transform: translateX(0); }
+    #studyPanel h2 { color: #00ffff; margin-top: 0; }
+
+    /* Main Content Pane */
+    #mainPane {
+        transition: margin-left 0.3s ease-in-out; margin-left: 0;
+        height: 100vh; /* Use full viewport height */
+        display: flex;
+        flex-direction: column; /* Stack children vertically */
+        overflow: hidden; /* Prevent scroll on main pane itself */
+        box-sizing: border-box; padding: 1em;
+    }
+    #page.study-visible #mainPane { margin-left: var(--current-study-panel-width, 420px); }
+
+    /* Text Content Container (Top Section) */
+    .top-section { 
+        margin-bottom: 1em; 
+        flex-shrink: 0; 
+        max-height: 25vh; /* ADDED: Limit height to 25% of viewport */ 
+        overflow-y: auto; /* ADDED: Add scrolling when needed */
+    }
+    .text-content-container { background: rgba(10, 10, 15, 0.7); border: 1px solid #333; padding: 1.5em; margin-bottom: 1em; border-radius: 4px; box-shadow: 0 0 10px var(--neon, rgba(0, 255, 153, 0.2)); }
+    h1 { color: var(--accent); margin: 0 0 .5em; font-size: 1.8em; }
+    .snake-titlebar { display: block; margin-top: -6px; margin-bottom: 1em; width: auto; max-width: 240px; height: auto; image-rendering: auto; filter: drop-shadow(0 0 5px var(--accent)); }
+    .snake-container { display: flex; width: 100%; align-items: center; margin-top: -6px; margin-bottom: 1em; }
+    .zigzag-svg { flex-grow: 1; height: 15px; margin-left: -5px; }
+    .zigzag-line { stroke: #e6e600; stroke-width: 3px; fill: none; filter: drop-shadow(0 0 3px #e6e600); }
+    p { margin: 0 0 1em; white-space: pre-wrap; line-height: 1.6; }
+    .hint, .stats, .error { margin-bottom: 1em; }
+    .hint { border-left: 3px solid #444; padding: .7em; color: #00ffff; margin-top: 1em; }
+    .stats { font-size: 1em; }
+    .error { background: #330000; color: #ff5555; padding: .5em; }
+    .typing-toggle { margin-bottom: .8em; }
+
+    /* Main Interactive Block Wrapper */
+    .main-interactive-block {
+        display: flex;
+        flex-direction: column;
+        flex: 1; /* Take remaining space */
+        min-height: 0; /* Allow flexbox to shrink below content size if needed */
+        border: 1px solid var(--container-border-color);
+        box-shadow: 0 0 12px var(--neon, rgba(0, 255, 153, 0.4));
+        margin-bottom: 1em;
+        overflow: hidden;
+        background-color: var(--bg);
+    }
+
+    /* File Tabs */
+    .file-tabs {
+        display: flex;
+        gap: 0;
+        flex-wrap: wrap;
+        margin-bottom: 0;
+        padding-left: 0.5em;
+        padding-top: 0.5em;
+        border-bottom: 1px solid var(--container-border-color);
+        flex-shrink: 0;
+    }
+    .file-tab {
+        padding: .3em 1em;
+        border: 1px solid var(--container-border-color);
+        border-bottom: none;
+        border-right: none;
+        background: #000;
+        cursor: pointer;
+        font-size: .9em;
+        margin-right: -1px;
+        position: relative;
+        z-index: 1;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+    }
+     .file-tab:last-child { border-right: 1px solid var(--container-border-color); }
+    .file-tab.active {
+        background: var(--bg);
+        color: var(--neon);
+        border-bottom: 1px solid var(--bg);
+        z-index: 2;
+    }
+
+    /* Editor/Preview Container */
+    .editor-preview-container {
+        display: flex;
+        gap: var(--editor-preview-gap);
+        height: var(--editor-preview-height); /* Explicit height value */
+        overflow: hidden;
+        align-items: stretch;
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        min-height: 0; /* Allow container to shrink */
+    }
+
+    /* Editor Area (Left Column) */
+    .editor-column {
+        width: var(--editor-width-ratio);
+        display: flex;
+        flex-direction: column; /* Stack editor and controls */
+        min-width: 0;
+        background-color: var(--bg);
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        overflow: hidden;
+    }
+    .editor-wrap {
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        position: relative; /* For Ace positioning */
+        overflow: hidden;
+        min-height: 400px; /* INCREASED from 300px */
+    }
+    #editor { 
+        position: absolute; 
+        top: 0; 
+        right: 0; 
+        bottom: 0; 
+        left: 0; 
+        height: 100%; /* Ensure editor takes full height */
+        width: 100%; 
+    }
+
+    /* Editor Controls */
+    .editor-controls {
+        margin-top: 0;
+        flex-shrink: 0; /* Prevent controls from shrinking */
+        padding: 0.5em;
+        border-top: 1px solid var(--container-border-color);
+        position: relative;
+        z-index: 110;
+        overflow: visible !important;
+    }
+    .button-group { display:flex; flex-wrap:wrap; margin-bottom: 0.5em; }
+    .button-group button {
+        margin: 0;
+        border-radius: 0;
+        border: 1px solid var(--container-border-color);
+        border-left-width: 0;
+        box-shadow: 0 0 8px var(--accent);
+        padding: .5em 0.8em;
+        background-color: #111;
+    }
+    .button-group button:first-child {
+        border-left-width: 1px;
+        border-top-left-radius: 3px;
+        border-bottom-left-radius: 3px;
+    }
+    .button-group button:last-child {
+        border-top-right-radius: 3px;
+        border-bottom-right-radius: 3px;
+    }
+    .button-group button:hover { background: var(--accent); box-shadow: 0 0 8px var(--accent); color: #000; z-index: 1; position: relative; }
+    .button-group #stopPreviewButton:hover { background: #ff6600; box-shadow: 0 0 8px #ff6600; }
+
+    .return-link { margin-top: 0.5em; display: inline-block; }
+
+    /* Preview Area (Right Column) */
+    .preview-column {
+        width: var(--preview-width-ratio);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        border-left: 1px solid var(--container-border-color);
+        background-color: var(--preview-canvas-bg);
+        position: relative;
+        z-index: 1;
+    }
+    #previewArea {
+        display: block; /* Changed from display:none to be visible by default */
+        background-color: var(--preview-canvas-bg);
+        position: relative;
+        outline: none;
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: 100%;
+    }
+    #previewCanvas { 
+        display: block; 
+        background-color: var(--preview-canvas-bg); 
+        width: 100%; 
+        height: 100%;
+        image-rendering: pixelated;
+    }
+    #previewOverlayText { 
+        position: absolute; 
+        top: 5px; 
+        left: 10px; 
+        color: var(--preview-text-color); 
+        font-size: 14px; 
+        pointer-events: none; 
+        text-shadow: 1px 1px 2px black; 
+        z-index: 1;
+    }
+    #previewControlsText {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        color: var(--preview-text-color);
+        font-size: 12px;
+        pointer-events: none;
+        text-shadow: 1px 1px 2px black;
+        opacity: 0.8;
+        z-index: 1;
+    }
+    #previewGameOverText { 
+        position: absolute; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        color: var(--preview-gameover-color); 
+        font-size: 24px; 
+        font-weight: bold; 
+        pointer-events: none; 
+        text-shadow: 2px 2px 4px black; 
+        text-align: center; 
+        display: none; 
+        z-index: 1;
+    }
+
+    /* Run Output Area (Bottom Section) */
+    #runOutput {
+        height: var(--run-output-height);
+        background: rgba(0,0,0,0.9); color: var(--fg);
+        padding: .7em; border: 1px solid #222;
+        font-size: .85em; overflow: auto; white-space: pre-wrap;
+        box-sizing: border-box; border-radius: 3px;
+        flex-shrink: 0;
+    }
+
+    /* General Button Styles (Outside Group) */
+    button { font-family: 'Share Tech Mono', monospace; background: #111; border: 2px solid var(--accent); color: var(--neon); padding: .5em 1em; cursor: pointer; box-shadow: 0 0 8px var(--accent); transition: .2s; font-size: .9em; margin: 0.2em; border-radius: 3px; }
+    button:hover { background: var(--accent); box-shadow: 0 0 12px var(--accent); color: #000; }
+    #stopPreviewButton { border-color: #ff6600; box-shadow: 0 0 8px #ff6600; }
+    #stopPreviewButton:hover { background: #ff6600; box-shadow: 0 0 12px #ff6600; }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 4px; border: 1px solid #111; }
+    * { scrollbar-width: thin; scrollbar-color: var(--neon) var(--bg); }
+
+    /* Ace Editor Style Fix */
+    .ace_gutter { color: var(--neon)!important; background: rgba(0,0,0,0.3) !important; }
+    .ace_print-margin { display: none!important; }
+    .ace_line { max-width: 100%!important; }
+    .ace_marker-layer .ace_active-line { background: rgba(255,255,255,.07)!important; }
+    .ace_gutter-active-line { background: rgba(255,255,255,.07)!important; }
+     #editor .ace_content, #editor .ace_text-layer .ace_line, #editor .ace_identifier { color: var(--neon, #00ff99) !important; }
+     #editor .ace_cursor { border-left: 2px solid var(--neon, #00ff99) !important; }
+     #editor .ace_marker-layer .ace_selection { background: var(--accent, #ff00cc) !important; opacity: 0.3 !important; }
+
+
+/* ───────────────────────────────────────────────
+   1.  Keep the control-buttons visible when the
+       Study Uplink panel slides in.
+   ──────────────────────────────────────────────*/
+   .main-interactive-block,
+.editor-controls{
+    overflow: visible;          /* allow buttons to spill if needed   */
+}
+.editor-controls{
+    position: relative;         /* create its own stacking context    */
+    z-index: 110;               /* one level above the study panel    */
+}
+
+/* ───────────────────────────────────────────────
+   GLOBAL  ▪  Let the whole page scroll vertically
+             instead of locking everything at 100 vh.
+   ──────────────────────────────────────────────*/
+   html, body{
+    overflow-y:auto !important;   /* enable page scroll           */
+}
+#mainPane{
+    height:auto !important;       /* grow with its content        */
+}
+.main-interactive-block{
+    flex:0 0 auto !important;     /* don't shrink if space is tight*/
+}
+
+/* ───────────────────────────────────────────────
+   QUEST TEXT  ▪  Remove the inner scrollbar and
+                 let it expand naturally.
+   ──────────────────────────────────────────────*/
+.top-section{
+    max-height:none   !important;
+    overflow:visible  !important;
+}
+
+/* ───────────────────────────────────────────────
+   BUTTON VISIBILITY  ▪  Ensure controls can spill
+   outside their column and still be seen.
+   ──────────────────────────────────────────────*/
+.main-interactive-block,
+.editor-preview-container,
+.editor-column,
+.editor-controls{
+    overflow:visible  !important;   /* lift the clipping fences   */
+    position:relative;              /* create own stacking ctx    */
+    z-index:110;                    /* float above the preview    */
+}
+
+/* When the Study Uplink is open, collapse (hide)
+   the preview column so the editor gets maximum width. */
+#page.study-visible .preview-column{
+    flex:0 0 0  !important;   /* zero-width but still in DOM   */
+    overflow:hidden !important;
+}
+#page.study-visible .editor-column{
+    width:100%   !important;
+}
+
+/* ─────────  FULL-WIDTH PREVIEW CANVAS  ───────── */
+.preview-column{
+    /* ditch the padding & centering that created the bezel */
+    justify-content:flex-start !important;
+    align-items:flex-start    !important;
+    padding:0                 !important;
+}
+
+#previewArea,
+#previewCanvas{
+    /* let the game surface consume the whole column */
+    width:100%  !important;   /* fill horizontally  */
+    height:100% !important;   /* fill vertically    */
+    image-rendering:pixelated;/* keep crisp edges   */
+}
+
+  </style>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/armory_styles.css') }}">
+<script src="{{ url_for('static', filename='js/armory.js') }}"></script>
+
+</head>
+<body class="{{ ' '.join(active_item_classes) if active_item_classes else '' }}">
+<div id="page">
+      <aside id="studyPanel">
+        <h2>📖 Study Uplink</h2>
+        <pre>{{ study_doc | safe }}</pre>
+      </aside>
+
+      <div id="mainPane">
+
+        <div class="top-section">
+             <div class="text-content-container">
+                <h1>{{ quest.title }}</h1>
+                <div class="snake-container">
+                  <img src="{{ url_for('static', filename='img/snake_titlebar.png') }}" class="snake-titlebar">
+                  <svg class="zigzag-svg" preserveAspectRatio="none" viewBox="0 0 100 15" xmlns="http://www.w3.org/2000/svg">
+                    <path class="zigzag-line" d="M0,7.5 L10,0 L20,15 L30,0 L40,15 L50,0 L60,15 L70,0 L80,15 L90,0 L100,15" vector-effect="non-scaling-stroke" />
+                  </svg>
+                </div>
+                <p>{{ quest.description }}</p>
+                {% if quest.hint %}<div class="hint"><strong>Hint:</strong> {{ quest.hint }}</div>{% endif %}
+                <div class="stats"><strong>XP:</strong> {{ xp }} | <strong>Level:</strong> {{ level }}</div>
+                {% if error %}<div class="error">{{ error }}</div>{% endif %}
+            </div>
+            <div class="typing-toggle"><label><input type="checkbox" id="typeToggle" checked> 🔊 Typing Sound</label></div>
+        </div>
+
+        <div class="main-interactive-block">
+            <div class="file-tabs" id="fileTabs"></div>
+
+            <div class="editor-preview-container">
+                <div class="editor-column">
+                    <div class="editor-wrap">
+                      <div id="editor"></div>
+                    </div>
+                    <div class="editor-controls">
+                        <div class="button-group">
+                          <button onclick="startPreview(); document.getElementById('previewArea').focus();">🐍 Run Snake Preview</button>
+                          <button id="stopPreviewButton" onclick="stopPreview()" style="display: none;">⏹️ Stop Preview</button>
+                          <button onclick="submitQuest()">✔ Transmit</button>
+                          <button onclick="toggleStudy()">📖 Toggle Uplink</button>
+                          <button onclick="addFile()">＋ New File</button>
+                          <button onclick="renameFile()">✎ Rename File</button>
+                          <button onclick="deleteFile()">🗑 Delete File</button>
+                        </div>
+                        <a href="/" class="return-link">[Return to Console]</a>
+                     </div>
+                     <form id="hiddenForm" method="post" style="display:none">
+                        <textarea id="code" name="code"></textarea>
+                     </form>
+                </div>
+                <div class="preview-column">
+                    <div id="previewArea" tabindex="0" style="display: block;">
+                        <canvas id="previewCanvas"></canvas>
+                        <div id="previewOverlayText">Score: 0</div>
+                        <div id="previewControlsText">Use arrow keys or WASD to control the snake</div>
+                        <div id="previewGameOverText">GAME OVER</div>
+                        <div id="customFilesInfo" style="position: absolute; bottom: 40px; left: 10px; color: var(--preview-text-color); font-size: 12px; text-shadow: 1px 1px 2px black; opacity: 0.8; z-index: 1;">
+                            You can create files with any names! Check the <a href="/snake_instructions" target="_blank" style="color: #00ffff;">instructions</a>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <pre id="runOutput"></pre>
+
+      </div>
+</div>
+
+<textarea id="templateFilesData" style="display:none;">{{ files|default({})|tojson|safe }}</textarea>
+
+<script>
+//--- Initial Global Variables ---
+let gameFiles = {};
+let activeFile = '';
+let socket = null;
+let isPreviewRunning = false;
+let lastGameState = null;
+let fallbackGameState = null;
+let fallbackGameLoop = null;
+let keepAliveInterval = null;
+let animationTime = 0;
+let currentDirection = 'RIGHT'; // Track the current direction globally
+
+// Debug log to show script is executing
+console.log('SCRIPT BLOCK STARTING - FIXED VERSION');
+
+// Initialize files from the hidden textarea
+(function setupFiles() {
+  try {
+    // Get the JSON data from the hidden textarea
+    const jsonData = document.getElementById('templateFilesData').value;
+    const templateData = JSON.parse(jsonData);
+    
+    if (templateData && typeof templateData === 'object') {
+      gameFiles = templateData;
+      console.log('Files loaded from template successfully');
+    } else {
+      gameFiles = { 'main.py': '# Start your snake code here\n' };
+    }
+  } catch (e) {
+    console.error('Error parsing template data:', e);
+    gameFiles = { 'main.py': '# Start your snake code here\n' };
+  }
+  
+  // Make sure we have at least one file
+  if (Object.keys(gameFiles).length === 0) {
+    gameFiles = { 'main.py': '# Start your snake code here\n' };
+  }
+  
+  // Set active file
+  activeFile = Object.keys(gameFiles)[0];
+})();
+
+// Initialize the editor
+const editor = ace.edit('editor');
+editor.setTheme('ace/theme/tomorrow_night_eighties');
+editor.session.setMode('ace/mode/python');
+editor.setOptions({ fontSize: '14pt', wrap: true, showPrintMargin: false });
+editor.setValue(gameFiles[activeFile] || '', -1);
+
+// Render file tabs
+function renderTabs() {
+  const tabBar = document.getElementById('fileTabs');
+  tabBar.innerHTML = '';
+  Object.keys(gameFiles).forEach(fname => {
+    const tab = document.createElement('div');
+    tab.textContent = fname;
+    tab.className = 'file-tab' + (fname === activeFile ? ' active' : '');
+    tab.onclick = () => switchFile(fname);
+    tabBar.appendChild(tab);
+  });
+}
+
+// Switch between files
+function switchFile(fname) {
+  if (fname === activeFile) return;
+  gameFiles[activeFile] = editor.getValue();
+  activeFile = fname;
+  editor.setValue(gameFiles[activeFile] || '', -1);
+  editor.clearSelection(); editor.focus();
+  renderTabs();
+}
+
+// Add a new file
+function addFile() {
+  playTransmit();
+  const name = prompt('New filename (e.g. utils.py)');
+  if (!name || gameFiles[name]) { alert(gameFiles[name] ? 'File already exists!' : 'Invalid filename.'); return; }
+  gameFiles[name] = `# ${name}\n`;
+  renderTabs(); switchFile(name);
+}
+
+// Rename the current file
+function renameFile() {
+  playTransmit();
+  const oldName = activeFile;
+  const newName = prompt('Rename file to:', oldName);
+  if (!newName || newName === oldName || gameFiles[newName]) { alert(gameFiles[newName] ? 'File already exists!' : 'Invalid filename.'); return; }
+  gameFiles[newName] = gameFiles[oldName]; delete gameFiles[oldName];
+  activeFile = newName; editor.setValue(gameFiles[newName], -1);
+  renderTabs();
+}
+
+// Delete the current file
+function deleteFile() {
+  playTransmit();
+  const names = Object.keys(gameFiles);
+  if (names.length <= 1) { alert('At least one file must remain.'); return; }
+  if (confirm('Delete ' + activeFile + '?')) {
+    delete gameFiles[activeFile]; activeFile = Object.keys(gameFiles)[0];
+    editor.setValue(gameFiles[activeFile], -1); renderTabs();
+  }
+}
+
+// Submit quest to server
+function submitQuest() {
+  if (isPreviewRunning) { stopPreview(); }
+  playTransmit();
+  gameFiles[activeFile] = editor.getValue();
+  document.getElementById('code').value = JSON.stringify(gameFiles);
+  setTimeout(() => document.getElementById('hiddenForm').submit(), 300);
+}
+
+// Toggle study panel
+function toggleStudy() {
+  playTransmit();
+  const page = document.getElementById("page");
+  const panel = document.getElementById("studyPanel");
+  const isOpening = !panel.classList.contains("visible");
+  if (isOpening) {
+    panel.classList.add("visible");
+    setTimeout(() => {
+      const panelWidth = panel.offsetWidth;
+      document.documentElement.style.setProperty('--current-study-panel-width', panelWidth + 'px');
+      page.classList.add("study-visible");
+      const mainPane = document.getElementById("mainPane");
+      mainPane.addEventListener('transitionend', function resizeAce() { editor.resize(true); mainPane.removeEventListener('transitionend', resizeAce); }, { once: true });
+    }, 50);
+  } else {
+    panel.classList.remove("visible"); page.classList.remove("study-visible");
+    const mainPane = document.getElementById("mainPane");
+    mainPane.addEventListener('transitionend', function resizeAce() { editor.resize(true); mainPane.removeEventListener('transitionend', resizeAce); }, { once: true });
+  }
+}
+
+// Play transmit sound
+function playTransmit() {
+  const snd = document.getElementById('transmitAudio');
+  if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
+}
+
+// Handle typing sounds
+const typeToggle = document.getElementById('typeToggle');
+const typeAudio = document.getElementById('typeAudio');
+function onEditorChange() { if (typeToggle.checked) { typeAudio.currentTime = 0; typeAudio.play().catch(() => {}); } }
+const savedTypingSound = localStorage.getItem('typingSound');
+typeToggle.checked = savedTypingSound === null ? true : savedTypingSound === 'true';
+editor.session.on('change', onEditorChange);
+typeToggle.addEventListener('change', () => { localStorage.setItem('typingSound', typeToggle.checked); });
+
+// --- Snake Preview Client Refactor ---
+// This script ensures all files are sent to the server, renders game state from server JSON, and handles errors/fallbacks robustly.
+
+// Collect all open files from the editor (dynamic, global)
+function getAllEditorFiles() {
+  // Always return a copy of all files in gameFiles
+  return { ...gameFiles };
+}
+
+// Save the current file's editor content to gameFiles before preview
+function updateAllEditorFiles() {
+  if (activeFile && editor) {
+    gameFiles[activeFile] = editor.getValue();
+  }
+}
+
+function startPreview() {
+  updateAllEditorFiles(); // Save current file
+  let files = getAllEditorFiles();
+  console.log('[Snake Preview] Sending files:', files);
+  if (!files || Object.keys(files).length === 0) {
+    console.warn('startPreview: No files to send, using fallback.');
+    files = { 'main.py': '# Start your snake code here\n' };
+  }
+  isPreviewRunning = true;
+  lastGameState = null;
+  fallbackGameState = null;
+  if (fallbackGameLoop) {
+    clearInterval(fallbackGameLoop);
+    fallbackGameLoop = null;
+  }
+  if (socket && socket.connected) {
+    socket.emit('start_snake_preview', { files: files, qid: window.currentQuestId || 0 });
+  } else {
+    connectWebSocket();
+    setTimeout(() => {
+      if (socket && socket.connected) {
+        socket.emit('start_snake_preview', { files: files, qid: window.currentQuestId || 0 });
+      }
+    }, 500);
+  }
+}
+
+function connectWebSocket() {
+  if (socket && socket.connected) return;
+  socket = io();
+  socket.on('game_state_update', (state) => {
+    lastGameState = state;
+    drawGameState(state);
+  });
+  socket.on('preview_error', (err) => {
+    runOutput.textContent += `\n❌ Error: ${err.error}`;
+    startFallbackGame();
+  });
+  socket.on('preview_started', (msg) => {
+    runOutput.textContent += `\n▶️ ${msg.message}`;
+  });
+  socket.on('preview_stopped', (msg) => {
+    runOutput.textContent += `\n⏹️ ${msg.message}`;
+    cleanupPreview();
+  });
+}
+
+function drawGameState(state) {
+  // Clear and resize canvas
+  clearCanvas();
+  resizeCanvas(state.grid_width, state.grid_height);
+  // Draw snake
+  ctx.fillStyle = 'var(--preview-snake-color)';
+  (state.snake || []).forEach(([x, y]) => {
+    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  });
+  // Draw food
+  if (state.food) {
+    ctx.fillStyle = 'var(--preview-food-color)';
+    ctx.fillRect(state.food[0] * CELL_SIZE, state.food[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  }
+  // Draw score
+  overlayText.textContent = `Score: ${state.score || 0}`;
+  // Game over
+  if (state.game_over) {
+    gameOverText.textContent = `GAME OVER\nFinal Score: ${state.score}`;
+    gameOverText.style.display = 'block';
+  } else {
+    gameOverText.style.display = 'none';
+  }
+  // Messages
+  if (state.message_title || state.message_text) {
+    overlayText.textContent += `\n${state.message_title || ''}\n${state.message_text || ''}`;
+  }
+}
+
+function startFallbackGame() {
+  // Minimal fallback: just show a static snake and food
+  fallbackGameState = {
+    grid_width: 30,
+    grid_height: 30,
+    snake: [[15, 15]],
+    food: [10, 10],
+    direction: 'RIGHT',
+    score: 0,
+    game_over: false,
+    message_title: 'Client-Side Fallback',
+    message_text: 'Connection issues detected. Running with local fallback engine.',
+    message_hint: 'Your code is still being used where possible.'
+  };
+  isPreviewRunning = true;
+  if (fallbackGameLoop) {
+    clearInterval(fallbackGameLoop);
+  }
+  fallbackGameLoop = setInterval(() => {
+    if (!isPreviewRunning || fallbackGameState.game_over) {
+      clearInterval(fallbackGameLoop);
+      fallbackGameLoop = null;
+      if (fallbackGameState.game_over) {
+        gameOverText.textContent = `GAME OVER\nFinal Score: ${fallbackGameState.score}`;
+        gameOverText.style.display = 'block';
+      }
+      return;
+    }
+    drawGameState(fallbackGameState);
+  }, 150);
+  previewArea.focus();
+}
+
+function stopPreview() {
+  if (!isPreviewRunning) return;
+  if (fallbackGameState) {
+    cleanupPreview();
+    return;
+  }
+  if (socket && socket.connected) {
+    socket.emit('stop_snake_preview');
+    setTimeout(() => {
+      if (isPreviewRunning) cleanupPreview();
+    }, 1000);
+  } else {
+    cleanupPreview();
+  }
+}
+
+function cleanupPreview() {
+  isPreviewRunning = false;
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
+  if (fallbackGameLoop) {
+    clearInterval(fallbackGameLoop);
+    fallbackGameLoop = null;
+  }
+  fallbackGameState = null;
+}
+
+// Keyboard controls
+previewArea.addEventListener('keydown', function(event) {
+  if (!isPreviewRunning) return;
+  let dir = null;
+  switch (event.key) {
+    case 'ArrowUp': case 'w': case 'W': dir = 'UP'; break;
+    case 'ArrowDown': case 's': case 'S': dir = 'DOWN'; break;
+    case 'ArrowLeft': case 'a': case 'A': dir = 'LEFT'; break;
+    case 'ArrowRight': case 'd': case 'D': dir = 'RIGHT'; break;
+  }
+  if (dir && socket && socket.connected) {
+    socket.emit('change_direction', { direction: dir });
+  }
+});
+
+// Utility: clear and resize canvas
+function clearCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+function resizeCanvas(gridW, gridH) {
+  canvas.width = gridW * CELL_SIZE;
+  canvas.height = gridH * CELL_SIZE;
+  previewArea.style.width = canvas.width + 'px';
+  previewArea.style.height = canvas.height + 'px';
+}
+
+// On page load, set up everything
+document.addEventListener('DOMContentLoaded', function() {
+  // Set up canvas, context, etc.
+  window.canvas = document.getElementById('previewCanvas');
+  window.ctx = canvas.getContext('2d');
+  window.overlayText = document.getElementById('previewOverlayText');
+  window.gameOverText = document.getElementById('previewGameOverText');
+  window.previewArea = document.getElementById('previewArea');
+  window.runOutput = document.getElementById('runOutput');
+  window.CELL_SIZE = 20;
+  // Patch: Add null checks before setting .onclick
+  const startBtn = document.getElementById('startPreviewButton');
+  if (startBtn) startBtn.onclick = startPreview;
+  const stopBtn = document.getElementById('stopPreviewButton');
+  if (stopBtn) stopBtn.onclick = stopPreview;
+});
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  // Resize canvas if preview is running
+  if (isPreviewRunning && canvas) {
+    // If we have game state, use its dimensions
+    if (lastGameState && lastGameState.grid_width && lastGameState.grid_height) {
+      resizeCanvas(lastGameState.grid_width, lastGameState.grid_height);
+      
+      // Redraw current state if available
+      if (lastGameState) {
+        // Use existing draw functions instead of drawGameState
+        clearCanvas();
+        drawGrid(lastGameState.grid_width, lastGameState.grid_height);
+        
+        // Re-render the game state
+        socket.emit('get_current_state');
+      }
+    } else {
+      // Default fallback
+      resizeCanvas(30, 30);
+    }
+  }
+});
+
+// Initial setup
+renderTabs();
+setTimeout(() => connectWebSocket(), 1000);
+
+// Handle editor resize
+window.addEventListener('load', () => {
+  // Initialize canvas with default grid size
+  resizeCanvas(30, 30);
+  
+  // Resize editor
+  setTimeout(() => editor.resize(true), 100);
+});
+
+// Make sure editor resizes correctly when pane changes
+const mainPaneForResize = document.getElementById("mainPane");
+if (mainPaneForResize) {
+  mainPaneForResize.addEventListener('transitionend', () => {
+    editor.resize(true);
+  });
+}
+
+setTimeout(() => editor.resize(true), 50);
+
+// Global key event tracking for debugging
+window.addEventListener('keydown', function(event) {
+  // Always show in the preview area when keys are pressed anywhere
+  if (isPreviewRunning) {
+    // Create a temporary element showing the key pressed
+    const keyIndicator = document.createElement('div');
+    keyIndicator.textContent = `Key: ${event.key}`;
+    keyIndicator.style.position = 'absolute';
+    keyIndicator.style.top = '50%';
+    keyIndicator.style.left = '50%';
+    keyIndicator.style.transform = 'translate(-50%, -50%)';
+    keyIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    keyIndicator.style.color = '#fff';
+    keyIndicator.style.padding = '10px';
+    keyIndicator.style.borderRadius = '5px';
+    keyIndicator.style.zIndex = '9999';
+    
+    // Add to preview area
+    previewArea.appendChild(keyIndicator);
+    
+    // Remove after a short time
+    setTimeout(() => {
+      keyIndicator.remove();
+    }, 500);
+  }
+});
+
+// Add a click handler to focus the preview area
+previewArea.addEventListener('click', function() {
+  if (isPreviewRunning) {
+    previewArea.focus();
+    console.log("Preview area clicked, focus set");
+  }
+});
+
+console.log('SCRIPT BLOCK COMPLETED');
+</script>
+<script src="{{ url_for('static', filename='js/bgm_handler.js') }}"></script>
+
+
+</body>
+</html>

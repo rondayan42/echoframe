@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ quest.title }}</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/armory_styles.css') }}">
+    <script src="{{ url_for('static', filename='js/armory.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/custom-scrollbar.js') }}"></script>
+
+    <style>
+        /* Styles remain the same as previous version */
+        :root {
+            --editor-container-width: 975px; --editor-container-height: 973px;
+            --ace-wrapper-top: 120px; --ace-wrapper-left: 62px;
+            --ace-wrapper-width: 830px; --ace-wrapper-height: 634px;
+            --current-study-panel-width: 420px;
+            /* Define theme colors */
+            --bg: #0b0b0b;
+            --neon: #00ff99;
+            --accent: #ff00cc;
+        }
+        /* REMOVED background-color: var(--bg); from here */
+        html, body { margin: 0; padding: 0; height: 100%; font-family: 'Share Tech Mono', monospace; overflow-x: hidden; color: var(--neon); }
+        #page { position: relative; min-height: 100%; }
+        #studyPanel { position: fixed; left: 0; top: 0; height: 100vh; background: #111; border-right: 1px solid #444; padding: 1em; color: var(--neon); font-size: .9em; overflow: hidden; word-break: break-word; line-height: 1.5; z-index: 100; max-width: 85vw; min-width: 300px; width: auto; box-sizing: border-box; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
+        #studyPanel.visible { transform: translateX(0); }
+        #studyPanel h2 { color: #00ffff; margin-top: 0; }
+        #mainPane { transition: margin-left 0.3s ease-in-out; margin-left: 0; padding-top: 2em; padding-bottom: 2em; min-height: 100vh; box-sizing: border-box; }
+        body.study-visible #mainPane { margin-left: var(--current-study-panel-width, 420px); }
+        .container { max-width: var(--editor-container-width); margin: 0 auto; padding: 2em; background: #111; border: 1px solid #333; box-shadow: 0 0 15px var(--neon); position: relative; z-index: 1; font-family: 'Share Tech Mono', monospace; box-sizing: border-box; }
+        body[class*="theme-"] .container, body[class*="frame-"] .container { background: rgba(11, 11, 11, 0.6) !important; border: none !important; box-shadow: 0 0 15px var(--neon) !important; }
+        .editor-container { position: relative !important; width: var(--editor-container-width) !important; height: var(--editor-container-height) !important; margin: 1em auto !important; background: transparent !important; z-index: 2 !important; overflow: hidden !important; max-width: 100%; }
+        /* Background behind Ace editor */
+        .editor-container::before { content: ""; position: absolute; top: var(--ace-wrapper-top) !important; left: var(--ace-wrapper-left) !important; width: var(--ace-wrapper-width) !important; height: var(--ace-wrapper-height) !important; background-color: var(--bg) !important; z-index: 1 !important; pointer-events: none !important; max-width: 100%; }
+        #crtFrameImage { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; pointer-events: none !important; z-index: 2 !important; display: block !important; object-fit: contain; }
+        #ace-wrapper { position: absolute !important; top: var(--ace-wrapper-top) !important; left: var(--ace-wrapper-left) !important; width: var(--ace-wrapper-width) !important; height: var(--ace-wrapper-height) !important; z-index: 3 !important; background: transparent !important; visibility: visible !important; opacity: 1 !important; max-width: 100%; }
+
+        /* --- Flicker Element Styling --- */
+        #crtFlicker {
+            position: absolute !important;
+            top: var(--ace-wrapper-top) !important;
+            left: var(--ace-wrapper-left) !important;
+            width: var(--ace-wrapper-width) !important;
+            height: var(--ace-wrapper-height) !important;
+            background: #fff !important; /* Set base background to white */
+            opacity: 0; /* Start transparent */
+            visibility: hidden; /* Start hidden */
+            z-index: 5 !important;
+            pointer-events: none !important;
+            transform-origin: center !important;
+            animation: crtOn 1s ease-out forwards !important;
+            max-width: 100%;
+        }
+
+        /* --- Modified Flicker Animation --- */
+        @keyframes crtOn {
+            0% {
+                background: #fff; /* Start thin white */
+                opacity: 1;
+                transform: scaleY(.02);
+                visibility: visible;
+            }
+            8% {
+                background: #fff; /* Hold thin white */
+                opacity: 1;
+                transform: scaleY(.02);
+            }
+            20% {
+                background: #fff; /* Expand to full white */
+                opacity: 1;
+                transform: scaleY(1);
+            }
+            60% {
+                 background: #fff; /* Hold full white */
+                 opacity: 1;
+                 transform: scaleY(1);
+            }
+            100% {
+                background: #fff; /* Fade out from white */
+                opacity: 0;
+                transform: scaleY(1);
+                visibility: hidden;
+            }
+        }
+        /* --- End Flicker Modification --- */
+
+        #ace-wrapper .ace_content, #ace-wrapper .ace_text-layer .ace_line, #ace-wrapper .ace_identifier { color: var(--neon) !important; font-family: 'Share Tech Mono', monospace !important; }
+        #ace-wrapper .ace_gutter { color: var(--neon) !important; background: rgba(0,0,0,0.3) !important; }
+        #ace-wrapper .ace_gutter-cell { color: inherit !important; }
+        #ace-wrapper .ace_marker-layer .ace_selection { background: var(--accent) !important; opacity: 0.3 !important; z-index: 4 !important; }
+        #ace-wrapper .ace_cursor { border-left: 2px solid var(--neon) !important; }
+        #ace-wrapper .ace_editor, #ace-wrapper .ace_gutter, #ace-wrapper .ace_content { background: transparent !important; }
+        #ace-wrapper .ace_print-margin { display: none !important; }
+        #ace-wrapper .ace_line { max-width: 100% !important; }
+        #ace-wrapper .ace_marker-layer .ace_active-line { background: rgba(255, 255, 255, .07) !important; position: absolute; z-index: 0; }
+        #ace-wrapper .ace_gutter-active-line { background: rgba(255, 255, 255, .07) !important; }
+        h1 { color: var(--accent); border-bottom: 2px solid #333; margin: 0 0 .6em; padding-bottom: 0.2em; }
+        .stats { margin-bottom: 1em; }
+        .hint { background: #111; border-left: 3px solid #444; padding: .7em; margin-top: 1em; color: #00ffff; }
+        .error { color: #ff5555; background: #330000; padding: .5em; margin-bottom: 1em; border: 1px solid #660000; border-radius: 3px; }
+        button { font-family: 'Share Tech Mono', monospace; background: #111; border: 2px solid var(--accent); color: var(--neon); padding: .6em 1.5em; font-size: 1em; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 0 8px rgba(255, 0, 204, 0.5); transition: all .2s; margin: 0.2em; }
+        button:hover { background: var(--accent); box-shadow: 0 0 12px var(--accent), 0 0 24px rgba(255, 51, 255, 0.25); color: #000; }
+        a { color: #999; display: inline-block; margin-top: 1em; text-decoration: none; }
+        a:hover { text-decoration: underline; color: var(--neon); }
+        #debugger { margin-top: 1.5em; padding: 1em; background: #111; border: 1px solid #444; color: var(--neon); border-radius: 4px; }
+        #debug-output { white-space: pre-wrap; margin-top: .5em; font-size: 0.9em; max-height: 200px; overflow: hidden; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: var(--bg); border: 1px solid #333; }
+        ::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 3px; border: 1px solid rgba(0,0,0,0.5); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        * { scrollbar-width: thin; scrollbar-color: var(--neon) var(--bg); }
+        form { margin-top: 1em; }
+    </style>
+
+</head>
+<body class="{{ ' '.join(active_item_classes) if active_item_classes else '' }}">
+    <aside id="studyPanel">
+        <h2>📖 Study Uplink</h2> <pre>{{ study_doc | safe }}</pre>
+    </aside>
+
+    <div id="page">
+        <div id="mainPane">
+            <div class="container">
+                <h1>{{ quest.title }}</h1>
+                <p>{{ quest.description | safe }}</p>
+                {% if quest.hint %}
+                <div class="hint"><strong>Hint:</strong> {{ quest.hint | safe }}</div>
+                {% endif %}
+
+                <div class="stats">
+                    <p><strong>XP:</strong> {{ xp }} &nbsp;|&nbsp; <strong>Level:</strong> {{ level }}</p>
+                </div>
+
+                {% if error %}
+                <div class="error">{{ error }}</div>
+                {% endif %}
+
+                <div style="margin-bottom:.5em">
+                    <label><input type="checkbox" id="typeToggle" checked> 🔊 Typing Sound</label> </div>
+                <button onclick="toggleStudy()">📖 Toggle Study Uplink</button> <div class="editor-container">
+                    <img id="crtFrameImage" src="{{ url_for('static', filename='img/crt_frame.png') }}" alt="CRT Frame">
+                    <div id="ace-wrapper"></div>
+                    <div id="crtFlicker"></div>
+                </div>
+
+                <form method="post" onsubmit="return submitCode()">
+                    <textarea id="code" name="code" style="display:none;"></textarea>
+                    <button type="submit">Transmit</button>
+                </form>
+
+                <a href="/">[Return to Console]</a>
+
+                <div id="debugger">
+                    <strong>🐛 Debug Console</strong> <pre id="debug-output">{{ debug_output }}</pre>
+                </div>
+
+                <audio id="typeAudio" preload="auto" src="{{ url_for('static', filename='audio/typing.mp3') }}"></audio>
+                <audio id="transmitAudio" preload="auto" src="{{ url_for('static', filename='audio/transmit.mp3') }}"></audio>
+                <audio id="crtOnSound" preload="auto" src="{{ url_for('static', filename='audio/crt_on.mp3') }}"></audio> <audio id="bgm" src="{{ url_for('static', filename='audio/bgm.mp3') }}" loop></audio>
+                <button id="bgmToggle" style="position:fixed;bottom:14px;right:18px;background:#111;border:1px solid var(--neon, #00ff99);color:var(--neon, #00ff99);padding:.35em 1em;opacity:.85;z-index:999">MUTE</button>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Ace Editor Setup ---
+        const editor = ace.edit("ace-wrapper");
+        editor.setTheme("ace/theme/tomorrow_night_eighties");
+        editor.session.setMode("ace/mode/python");
+        editor.setOptions({ fontSize: "14pt", fontFamily: "Share Tech Mono, monospace", showPrintMargin: false, wrap: true, useWorker: false });
+        editor.commands.addCommand({ name: "submitQuestCode", bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" }, exec: () => submitCode() });
+
+        let editorTouched = false;
+        const placeholderText = "# Write your code here...";
+        editor.on("focus", () => { if (!editorTouched && editor.getValue() === placeholderText) { editor.setValue(""); editorTouched = true; } });
+
+        const defaultCode = {{ last_code | tojson | safe }};
+        editor.setValue(defaultCode || placeholderText);
+        editor.clearSelection();
+        editor.gotoLine(1);
+        if (defaultCode && defaultCode !== placeholderText) { editorTouched = true; }
+
+        // --- Error Highlighting ---
+        const errorLine = {{ error_line | tojson | safe }};
+        if (errorLine !== null) {
+            try {
+                const { Range } = ace.require('ace/range');
+                editor.session.addMarker(
+                    new Range(errorLine - 1, 0, errorLine - 1, 1),
+                    "ace_error-line",
+                    "fullLine"
+                );
+                // Add CSS for the error line marker if not already present
+                if (!document.getElementById('ace-error-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'ace-error-style'; // Add ID to prevent duplicates
+                    style.innerHTML = `.ace_error-line { position: absolute; background: rgba(255, 0, 0, 0.2); z-index: 20; }`;
+                    document.head.appendChild(style);
+                }
+            } catch (e) {
+                console.error("Error adding Ace marker:", e);
+            }
+        }
+
+        // --- Typing Sound ---
+        const typeToggle = document.getElementById("typeToggle");
+        const typeAudio = document.getElementById("typeAudio");
+
+        editor.on("change", () => {
+            if (typeToggle && typeAudio && typeToggle.checked) {
+                // Play sound, reset time if possible
+                const playPromise = typeAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.error("Typing sound failed (interaction needed?):", error);
+                    }).then(() => {
+                        // Reset time only if play succeeded and audio is long enough
+                        if (typeAudio.duration > 0.15) {
+                             typeAudio.currentTime = 0;
+                        }
+                    });
+                }
+            }
+        });
+
+        // Ensure cursor visibility on change
+        editor.selection.on("changeCursor", () => editor.renderer.updateFull());
+
+        // --- Study Panel Toggle Logic ---
+        function toggleStudy() {
+            const body = document.body;
+            const panel = document.getElementById("studyPanel");
+            const mainPane = document.getElementById("mainPane");
+            const transmitSound = document.getElementById("transmitAudio"); // Use transmit sound for toggle
+
+            if (transmitSound) { transmitSound.currentTime = 0; transmitSound.play().catch(()=>{}); }
+
+            const isOpening = !panel.classList.contains("visible");
+
+            // Function to resize Ace after transition
+            function resizeAceAfterTransition() {
+                console.log("Resizing editor after study panel transition.");
+                editor.resize(true);
+                mainPane.removeEventListener('transitionend', resizeAceAfterTransition);
+            }
+
+            if (isOpening) {
+                panel.classList.add("visible");
+                // Wait for panel to start opening before getting width and applying margin class
+                setTimeout(() => {
+                    const panelWidth = panel.offsetWidth;
+                    document.documentElement.style.setProperty('--current-study-panel-width', `${panelWidth}px`);
+                    body.classList.add("study-visible");
+                    // Add listener *after* potentially starting the transition
+                    mainPane.addEventListener('transitionend', resizeAceAfterTransition, { once: true });
+                }, 0); // Small delay ensures width is calculated correctly
+            } else {
+                body.classList.remove("study-visible"); // Remove margin class first
+                panel.classList.remove("visible"); // Then hide panel
+                // Add listener *after* potentially starting the transition
+                mainPane.addEventListener('transitionend', resizeAceAfterTransition, { once: true });
+            }
+        }
+
+        // --- Code Submission Logic ---
+        function submitCode() {
+            const currentCode = editor.getValue();
+            document.getElementById("code").value = currentCode;
+            const transmitSound = document.getElementById("transmitAudio");
+            if (transmitSound) {
+                transmitSound.currentTime = 0;
+                transmitSound.play().catch(e => { console.error("Transmit sound failed:", e); });
+                // Submit after sound has had time to play
+                setTimeout(() => { document.querySelector("form").submit(); }, 500); // 500ms delay
+            } else {
+                document.querySelector("form").submit(); // Submit immediately if no sound
+            }
+            return false; // Prevent default form submission
+        }
+
+        // --- DOMContentLoaded Event Listener ---
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log("DOM fully loaded and parsed for quest.html");
+
+            // Typing Sound Toggle Persistence
+            if (typeToggle) {
+                const savedTypingPref = localStorage.getItem("typingSoundEnabled");
+                const isTypingEnabled = savedTypingPref === null ? true : savedTypingPref === "true"; // Default to true
+                typeToggle.checked = isTypingEnabled;
+                typeToggle.addEventListener("change", () => {
+                    localStorage.setItem("typingSoundEnabled", typeToggle.checked);
+                });
+            } else {
+                 console.error("typeToggle element not found on DOMContentLoaded");
+            }
+
+            // Apply custom scrollbars
+            if (document.getElementById('debug-output')) { createCustomScrollbar('debug-output'); }
+            if (document.getElementById('studyPanel')) { createCustomScrollbar('studyPanel'); }
+
+            // Initial editor resize
+            editor.resize(true);
+
+            // Play CRT On Sound (if element exists)
+            const crtOnSound = document.getElementById("crtOnSound");
+            if(crtOnSound) {
+                crtOnSound.play().catch(e => console.log("CRT sound needs user interaction first."));
+            }
+        });
+
+        // Resize Ace editor when window resizes
+        window.addEventListener('resize', () => {
+             // Use a small timeout to debounce resize calls
+             clearTimeout(window.resizeTimer);
+             window.resizeTimer = setTimeout(() => {
+                 editor.resize(true);
+                 console.log("Resized editor due to window resize.");
+             }, 100);
+        });
+
+    </script>
+    <script src="{{ url_for('static', filename='js/bgm_handler.js') }}"></script>
+
+    
+</body>
+</html>

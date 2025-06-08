@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ quest.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.min.js"></script>
+
+  <audio id="transmitAudio" preload="auto" src="{{ url_for('static', filename='audio/transmit.mp3') }}"></audio>
+  <audio id="typeAudio" preload="auto" src="{{ url_for('static', filename='audio/typing.mp3') }}"></audio>
+  <audio id="bgm" src="{{ url_for('static', filename='audio/bgm.mp3') }}" loop></audio>
+  <button id="bgmToggle" style="position:fixed;bottom:14px;right:18px;background:#111;border:1px solid var(--neon, #00ff99);color:var(--neon, #00ff99);padding:.35em 1em;opacity:.85;z-index:999">MUTE</button>
+  <style>
+    /* Base variables and styles */
+    :root {
+      --neon: #00ff99;
+      --bg: #0b0b0b; /* Primary background for editor/tabs/controls */
+      --fg: #00ffaa;
+      --accent: #ff00cc;
+      --run-output-height: 120px; /* REDUCED from 150px */
+      --current-study-panel-width: 420px;
+      /* Canvas/Preview Styles */
+      --preview-canvas-bg: #222;
+      --preview-grid-color: #444;
+      --preview-snake-color: var(--neon);
+      --preview-food-color: #ff4444;
+      --preview-text-color: #eee;
+      --preview-gameover-color: #ff5555;
+      /* Layout */
+      --editor-preview-gap: 0em; /* No gap */
+      --editor-width-ratio: 65%;
+      --preview-width-ratio: 35%;
+      --container-border-color: #333;
+      /* Explicit Height for Editor/Preview Area */
+      --editor-preview-height: 70vh; /* INCREASED from 60vh */
+    }
+
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--neon); font-family: 'Share Tech Mono', monospace; overflow: hidden; }
+    a { color: #00ffff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    #page { height: 100%; overflow-x: hidden; position: relative; }
+
+    /* Study Panel Styling */
+    #studyPanel { position: fixed; left: 0; top: 0; height: 100vh; background: #111; border-right: 1px solid #444; padding: 1em; overflow-y: auto; font-size: 0.9em; white-space: pre-wrap; word-break: break-word; line-height: 1.5; box-sizing: border-box; z-index: 100; max-width: 85vw; min-width: 300px; width: auto; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
+    #studyPanel.visible { transform: translateX(0); }
+    #studyPanel h2 { color: #00ffff; margin-top: 0; }
+
+    /* Main Content Pane */
+    #mainPane {
+        transition: margin-left 0.3s ease-in-out; margin-left: 0;
+        height: 100vh; /* Use full viewport height */
+        display: flex;
+        flex-direction: column; /* Stack children vertically */
+        overflow: hidden; /* Prevent scroll on main pane itself */
+        box-sizing: border-box; padding: 1em;
+    }
+    #page.study-visible #mainPane { margin-left: var(--current-study-panel-width, 420px); }
+
+    /* Text Content Container (Top Section) */
+    .top-section { 
+        margin-bottom: 1em; 
+        flex-shrink: 0; 
+        max-height: 25vh; /* ADDED: Limit height to 25% of viewport */ 
+        overflow-y: auto; /* ADDED: Add scrolling when needed */
+    }
+    .text-content-container { background: rgba(10, 10, 15, 0.7); border: 1px solid #333; padding: 1.5em; margin-bottom: 1em; border-radius: 4px; box-shadow: 0 0 10px var(--neon, rgba(0, 255, 153, 0.2)); }
+    h1 { color: var(--accent); margin: 0 0 .5em; font-size: 1.8em; }
+    .snake-titlebar { display: block; margin-top: -6px; margin-bottom: 1em; width: auto; max-width: 240px; height: auto; image-rendering: auto; filter: drop-shadow(0 0 5px var(--accent)); }
+    .snake-container { display: flex; width: 100%; align-items: center; margin-top: -6px; margin-bottom: 1em; }
+    .zigzag-svg { flex-grow: 1; height: 15px; margin-left: -5px; }
+    .zigzag-line { stroke: #e6e600; stroke-width: 3px; fill: none; filter: drop-shadow(0 0 3px #e6e600); }
+    p { margin: 0 0 1em; white-space: pre-wrap; line-height: 1.6; }
+    .hint, .stats, .error { margin-bottom: 1em; }
+    .hint { border-left: 3px solid #444; padding: .7em; color: #00ffff; margin-top: 1em; }
+    .stats { font-size: 1em; }
+    .error { background: #330000; color: #ff5555; padding: .5em; }
+    .typing-toggle { margin-bottom: .8em; }
+
+    /* Main Interactive Block Wrapper */
+    .main-interactive-block {
+        display: flex;
+        flex-direction: column;
+        flex: 1; /* Take remaining space */
+        min-height: 0; /* Allow flexbox to shrink below content size if needed */
+        border: 1px solid var(--container-border-color);
+        box-shadow: 0 0 12px var(--neon, rgba(0, 255, 153, 0.4));
+        margin-bottom: 1em;
+        overflow: hidden;
+        background-color: var(--bg);
+    }
+
+    /* File Tabs */
+    .file-tabs {
+        display: flex;
+        gap: 0;
+        flex-wrap: wrap;
+        margin-bottom: 0;
+        padding-left: 0.5em;
+        padding-top: 0.5em;
+        border-bottom: 1px solid var(--container-border-color);
+        flex-shrink: 0;
+    }
+    .file-tab {
+        padding: .3em 1em;
+        border: 1px solid var(--container-border-color);
+        border-bottom: none;
+        border-right: none;
+        background: #000;
+        cursor: pointer;
+        font-size: .9em;
+        margin-right: -1px;
+        position: relative;
+        z-index: 1;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+    }
+     .file-tab:last-child { border-right: 1px solid var(--container-border-color); }
+    .file-tab.active {
+        background: var(--bg);
+        color: var(--neon);
+        border-bottom: 1px solid var(--bg);
+        z-index: 2;
+    }
+
+    /* Editor/Preview Container */
+    .editor-preview-container {
+        display: flex;
+        gap: var(--editor-preview-gap);
+        height: var(--editor-preview-height); /* Explicit height value */
+        overflow: hidden;
+        align-items: stretch;
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        min-height: 0; /* Allow container to shrink */
+    }
+
+    /* Editor Area (Left Column) */
+    .editor-column {
+        width: var(--editor-width-ratio);
+        display: flex;
+        flex-direction: column; /* Stack editor and controls */
+        min-width: 0;
+        background-color: var(--bg);
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        overflow: hidden;
+    }
+    .editor-wrap {
+        flex: 1 1 auto; /* Grow and shrink proportionally */
+        position: relative; /* For Ace positioning */
+        overflow: hidden;
+        min-height: 400px; /* INCREASED from 300px */
+    }
+    #editor { 
+        position: absolute; 
+        top: 0; 
+        right: 0; 
+        bottom: 0; 
+        left: 0; 
+        height: 100%; /* Ensure editor takes full height */
+        width: 100%; 
+    }
+
+    /* Editor Controls */
+    .editor-controls {
+        margin-top: 0;
+        flex-shrink: 0; /* Prevent controls from shrinking */
+        padding: 0.5em;
+        border-top: 1px solid var(--container-border-color);
+        position: relative;
+        z-index: 110;
+        overflow: visible !important;
+    }
+    .button-group { display:flex; flex-wrap:wrap; margin-bottom: 0.5em; }
+    .button-group button {
+        margin: 0;
+        border-radius: 0;
+        border: 1px solid var(--container-border-color);
+        border-left-width: 0;
+        box-shadow: 0 0 8px var(--accent);
+        padding: .5em 0.8em;
+        background-color: #111;
+    }
+    .button-group button:first-child {
+        border-left-width: 1px;
+        border-top-left-radius: 3px;
+        border-bottom-left-radius: 3px;
+    }
+    .button-group button:last-child {
+        border-top-right-radius: 3px;
+        border-bottom-right-radius: 3px;
+    }
+    .button-group button:hover { background: var(--accent); box-shadow: 0 0 8px var(--accent); color: #000; z-index: 1; position: relative; }
+    .button-group #stopPreviewButton:hover { background: #ff6600; box-shadow: 0 0 8px #ff6600; }
+
+    .return-link { margin-top: 0.5em; display: inline-block; }
+
+    /* Preview Area (Right Column) */
+    .preview-column {
+        width: var(--preview-width-ratio);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        border-left: 1px solid var(--container-border-color);
+        background-color: var(--preview-canvas-bg);
+        position: relative;
+        z-index: 1;
+    }
+    #previewArea {
+        display: block !important; /* Always visible */
+        background-color: var(--preview-canvas-bg);
+        position: relative;
+        outline: none;
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    #previewCanvas { 
+        display: block !important; /* Always visible */
+        background-color: var(--preview-canvas-bg); 
+        width: 100%; 
+        height: 100%;
+        image-rendering: pixelated;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 1000 !important; /* Ensure canvas is on top of everything */
+    }
+    #previewOverlayText { 
+        position: absolute; 
+        top: 5px; 
+        left: 10px; 
+        color: var(--preview-text-color); 
+        font-size: 14px; 
+        pointer-events: none; 
+        text-shadow: 1px 1px 2px black; 
+        z-index: 1;
+    }
+    #previewGameOverText { 
+        position: absolute; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        color: var(--preview-gameover-color); 
+        font-size: 24px; 
+        font-weight: bold; 
+        pointer-events: none; 
+        text-shadow: 2px 2px 4px black; 
+        text-align: center; 
+        display: none; 
+        z-index: 1;
+    }
+
+    /* Run Output Area (Bottom Section) */
+    #runOutput {
+        height: var(--run-output-height);
+        background: rgba(0,0,0,0.9); color: var(--fg);
+        padding: .7em; border: 1px solid #222;
+        font-size: .85em; overflow: auto; white-space: pre-wrap;
+        box-sizing: border-box; border-radius: 3px;
+        flex-shrink: 0;
+    }
+
+    /* General Button Styles (Outside Group) */
+    button { font-family: 'Share Tech Mono', monospace; background: #111; border: 2px solid var(--accent); color: var(--neon); padding: .5em 1em; cursor: pointer; box-shadow: 0 0 8px var(--accent); transition: .2s; font-size: .9em; margin: 0.2em; border-radius: 3px; }
+    button:hover { background: var(--accent); box-shadow: 0 0 12px var(--accent); color: #000; }
+    #stopPreviewButton { border-color: #ff6600; box-shadow: 0 0 8px #ff6600; }
+    #stopPreviewButton:hover { background: #ff6600; box-shadow: 0 0 12px #ff6600; }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 4px; border: 1px solid #111; }
+    * { scrollbar-width: thin; scrollbar-color: var(--neon) var(--bg); }
+
+    /* Ace Editor Style Fix */
+    .ace_gutter { color: var(--neon)!important; background: rgba(0,0,0,0.3) !important; }
+    .ace_print-margin { display: none!important; }
+    .ace_line { max-width: 100%!important; }
+    .ace_marker-layer .ace_active-line { background: rgba(255,255,255,.07)!important; }
+    .ace_gutter-active-line { background: rgba(255,255,255,.07)!important; }
+     #editor .ace_content, #editor .ace_text-layer .ace_line, #editor .ace_identifier { color: var(--neon, #00ff99) !important; }
+     #editor .ace_cursor { border-left: 2px solid var(--neon, #00ff99) !important; }
+     #editor .ace_marker-layer .ace_selection { background: var(--accent, #ff00cc) !important; opacity: 0.3 !important; }
+
+
+/* ───────────────────────────────────────────────
+   1.  Keep the control-buttons visible when the
+       Study Uplink panel slides in.
+   ──────────────────────────────────────────────*/
+   .main-interactive-block,
+.editor-controls{
+    overflow: visible;          /* allow buttons to spill if needed   */
+}
+.editor-controls{
+    position: relative;         /* create its own stacking context    */
+    z-index: 110;               /* one level above the study panel    */
+}
+
+/* ───────────────────────────────────────────────
+   GLOBAL  ▪  Let the whole page scroll vertically
+             instead of locking everything at 100 vh.
+   ──────────────────────────────────────────────*/
+   html, body{
+    overflow-y:auto !important;   /* enable page scroll           */
+}
+#mainPane{
+    height:auto !important;       /* grow with its content        */
+}
+.main-interactive-block{
+    flex:0 0 auto !important;     /* don't shrink if space is tight*/
+}
+
+/* ───────────────────────────────────────────────
+   QUEST TEXT  ▪  Remove the inner scrollbar and
+                 let it expand naturally.
+   ──────────────────────────────────────────────*/
+.top-section{
+    max-height:none   !important;
+    overflow:visible  !important;
+}
+
+/* ───────────────────────────────────────────────
+   BUTTON VISIBILITY  ▪  Ensure controls can spill
+   outside their column and still be seen.
+   ──────────────────────────────────────────────*/
+.main-interactive-block,
+.editor-preview-container,
+.editor-column,
+.editor-controls{
+    overflow:hidden;
+    position:relative;
+    z-index:1;
+}
+
+/* When the Study Uplink is open, collapse (hide)
+   the preview column so the editor gets maximum width. */
+#page.study-visible .preview-column{
+    display: none !important; /* Hide completely when study panel is open */
+}
+#page.study-visible .editor-column{
+    width:100% !important;
+}
+
+
+
+/* ─────────  FULL-WIDTH PREVIEW CANVAS  ───────── */
+.preview-column {
+    /* ditch the padding & centering that created the bezel */
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    min-height: 400px; /* Ensure minimum height */
+}
+
+#previewArea,
+#previewCanvas {
+    /* let the game surface consume the whole column */
+    width: 100% !important;   /* fill horizontally  */
+    height: 100% !important;   /* fill vertically    */
+    image-rendering: pixelated;/* keep crisp edges   */
+    object-fit: contain;
+    position: relative;
+    z-index: 2;
+}
+
+
+  </style>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/armory_styles.css') }}">
+<script src="{{ url_for('static', filename='js/armory.js') }}"></script>
+
+</head>
+<body class="{{ ' '.join(active_item_classes) if active_item_classes else '' }}">
+<div id="page">
+      <aside id="studyPanel">
+        <h2>📖 Study Uplink</h2>
+        <pre>{{ study_doc | safe }}</pre>
+      </aside>
+
+      <div id="mainPane">
+
+        <div class="top-section">
+             <div class="text-content-container">
+                <h1>{{ quest.title }}</h1>
+                <div class="snake-container">
+                  <img src="{{ url_for('static', filename='img/snake_titlebar.png') }}" class="snake-titlebar">
+                  <svg class="zigzag-svg" preserveAspectRatio="none" viewBox="0 0 100 15" xmlns="http://www.w3.org/2000/svg">
+                    <path class="zigzag-line" d="M0,7.5 L10,0 L20,15 L30,0 L40,15 L50,0 L60,15 L70,0 L80,15 L90,0 L100,15" vector-effect="non-scaling-stroke" />
+                  </svg>
+                </div>
+                <p>{{ quest.description }}</p>
+                {% if quest.hint %}<div class="hint"><strong>Hint:</strong> {{ quest.hint }}</div>{% endif %}
+                <div class="stats"><strong>XP:</strong> {{ xp }} | <strong>Level:</strong> {{ level }}</div>
+                {% if error %}<div class="error">{{ error }}</div>{% endif %}
+            </div>
+            <div class="typing-toggle"><label><input type="checkbox" id="typeToggle" checked> 🔊 Typing Sound</label></div>
+        </div>
+
+        <div class="main-interactive-block">
+            <div class="file-tabs" id="fileTabs"></div>
+
+            <div class="editor-preview-container">
+                <div class="editor-column">
+                    <div class="editor-wrap">
+                      <div id="editor"></div>
+                    </div>
+                    <div class="editor-controls">
+                        <div class="button-group">
+                          <button onclick="startPreview()">🐍 Run Snake Preview</button>
+                          <button id="stopPreviewButton" onclick="stopPreview()" style="display: none;">⏹️ Stop Preview</button>
+                          <button onclick="submitQuest()">✔ Transmit</button>
+                          <button onclick="toggleStudy()">📖 Toggle Uplink</button>
+                          <button onclick="addFile()">＋ New File</button>
+                          <button onclick="renameFile()">✎ Rename File</button>
+                          <button onclick="deleteFile()">🗑 Delete File</button>
+                        </div>
+                        <a href="/" class="return-link">[Return to Console]</a>
+                     </div>
+                     <form id="hiddenForm" method="post" style="display:none">
+                        <textarea id="code" name="code"></textarea>
+                     </form>
+                </div>
+                <div class="preview-column">
+                    <div id="previewArea" tabindex="0">
+                        <canvas id="previewCanvas"></canvas>
+                        <div id="previewOverlayText">Score: 0</div>
+                        <div id="previewGameOverText">GAME OVER</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <pre id="runOutput"></pre>
+
+      </div>
+</div>
+
+<script>
+  // --- Ace Editor Setup ---
+  const initialFiles = {{ files|tojson|safe }};
+  let files = JSON.parse(JSON.stringify(initialFiles || { 'main.py': '# Start your snake code here\n' }));
+  let activeFile = Object.keys(files)[0];
+
+  const editor = ace.edit('editor');
+  editor.setTheme('ace/theme/tomorrow_night_eighties');
+  editor.session.setMode('ace/mode/python');
+  editor.setOptions({ fontSize: '14pt', wrap: true, showPrintMargin: false }); // INCREASED font size
+  editor.setValue(files[activeFile] || '', -1);
+
+  function renderTabs() {
+    const tabBar = document.getElementById('fileTabs');
+    tabBar.innerHTML = '';
+    Object.keys(files).forEach(fname => {
+      const tab = document.createElement('div');
+      tab.textContent = fname;
+      tab.className = 'file-tab' + (fname === activeFile ? ' active' : '');
+      tab.onclick = () => switchFile(fname);
+      tabBar.appendChild(tab);
+    });
+  }
+  
+  function switchFile(fname) {
+    if (fname === activeFile) return;
+    files[activeFile] = editor.getValue();
+    activeFile = fname;
+    editor.setValue(files[activeFile] || '', -1);
+    editor.clearSelection(); editor.focus();
+    renderTabs();
+  }
+  
+  function addFile() {
+    playTransmit();
+    const name = prompt('New filename (e.g. utils.py)');
+    if (!name || files[name]) { alert(files[name] ? 'File already exists!' : 'Invalid filename.'); return; }
+    files[name] = `# ${name}\n`;
+    renderTabs(); switchFile(name);
+  }
+  
+  function renameFile() {
+    playTransmit();
+    const oldName = activeFile;
+    const newName = prompt('Rename file to:', oldName);
+    if (!newName || newName === oldName || files[newName]) { alert(files[newName] ? 'File already exists!' : 'Invalid filename.'); return; }
+    files[newName] = files[oldName]; delete files[oldName];
+    activeFile = newName; editor.setValue(files[newName], -1);
+    renderTabs();
+  }
+  
+  function deleteFile() {
+    playTransmit();
+    const names = Object.keys(files);
+    if (names.length <= 1) { alert('At least one file must remain.'); return; }
+    if (confirm('Delete ' + activeFile + '?')) {
+      delete files[activeFile]; activeFile = Object.keys(files)[0];
+      editor.setValue(files[activeFile], -1); renderTabs();
+    }
+  }
+  
+  function submitQuest() {
+    if (isPreviewRunning) { stopPreview(); }
+    playTransmit();
+    files[activeFile] = editor.getValue();
+    document.getElementById('code').value = JSON.stringify(files);
+    setTimeout(() => document.getElementById('hiddenForm').submit(), 300);
+  }
+  
+  function toggleStudy() {
+    playTransmit();
+    const page = document.getElementById("page");
+    const panel = document.getElementById("studyPanel");
+    const isOpening = !panel.classList.contains("visible");
+    if (isOpening) {
+      panel.classList.add("visible");
+      setTimeout(() => {
+        const panelWidth = panel.offsetWidth;
+        document.documentElement.style.setProperty('--current-study-panel-width', panelWidth + 'px');
+        page.classList.add("study-visible");
+        const mainPane = document.getElementById("mainPane");
+        mainPane.addEventListener('transitionend', function resizeAce() { editor.resize(true); mainPane.removeEventListener('transitionend', resizeAce); }, { once: true });
+      }, 50);
+    } else {
+      panel.classList.remove("visible"); page.classList.remove("study-visible");
+      const mainPane = document.getElementById("mainPane");
+       mainPane.addEventListener('transitionend', function resizeAce() { editor.resize(true); mainPane.removeEventListener('transitionend', resizeAce); }, { once: true });
+    }
+  }
+  
+  function playTransmit() {
+    const snd = document.getElementById('transmitAudio');
+    if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
+  }
+  
+  const typeToggle = document.getElementById('typeToggle');
+  const typeAudio = document.getElementById('typeAudio');
+  function onEditorChange() { if (typeToggle.checked) { typeAudio.currentTime = 0; typeAudio.play().catch(() => {}); } }
+  const savedTypingSound = localStorage.getItem('typingSound');
+  typeToggle.checked = savedTypingSound === null ? true : savedTypingSound === 'true';
+  editor.session.on('change', onEditorChange);
+  typeToggle.addEventListener('change', () => { localStorage.setItem('typingSound', typeToggle.checked); });
+
+  // --- WebSocket and Canvas Preview Logic ---
+const previewArea = document.getElementById('previewArea');
+const canvas = document.getElementById('previewCanvas');
+const ctx = canvas.getContext('2d', { alpha: false }); // Disable alpha for better performance
+const runOutput = document.getElementById('runOutput');
+const stopButton = document.getElementById('stopPreviewButton');
+const overlayText = document.getElementById('previewOverlayText');
+const gameOverText = document.getElementById('previewGameOverText');
+let socket = null;
+let isPreviewRunning = false;
+let lastGameState = null;
+let keepAliveInterval = null;
+let keyProcessingEnabled = true; // Flag to prevent rapid key processing
+
+// Fallback game state for client-side gameplay when server doesn't respond
+let fallbackGameState = {
+  snake: [[15, 15], [14, 15], [13, 15]],
+  food: [20, 20],
+  direction: 'RIGHT',
+  score: 0,
+  active: false,
+  lastUpdate: 0,
+  frameRate: 200 // ms per frame
+};
+
+// Debug: log all socket events
+setTimeout(() => {
+  if (window.io && socket) {
+    socket.onAny((event, ...args) => {
+      console.log('[SOCKET EVENT]', event, args);
+    });
+  }
+}, 1000);
+
+// Constants for game rendering
+const CELL_SIZE = 15;
+const GRID_COLOR = '#555555'; // Slightly brighter grid 
+const SNAKE_COLOR = '#00ff66'; // Bright green for snake
+const FOOD_COLOR = '#ff3333'; // Bright red for food
+const CANVAS_BG = '#111111'; // Darker background for contrast
+
+// Resize canvas based on grid dimensions
+function resizeCanvas(gridWidth, gridHeight) {
+  const pixelWidth = gridWidth * CELL_SIZE;
+  const pixelHeight = gridHeight * CELL_SIZE;
+  
+  // Set canvas dimensions
+  canvas.width = pixelWidth;
+  canvas.height = pixelHeight;
+  
+  // Calculate scale to fit canvas in preview area while maintaining aspect ratio
+  const previewWidth = previewArea.clientWidth;
+  const previewHeight = previewArea.clientHeight; 
+  const scale = Math.min(previewWidth / pixelWidth, previewHeight / pixelHeight, 1);
+  
+  // Apply scale transform and center canvas
+  canvas.style.transform = `scale(${scale})`;
+  canvas.style.transformOrigin = 'center';
+  canvas.style.position = 'absolute';
+  canvas.style.left = '50%';
+  canvas.style.top = '50%';
+  canvas.style.marginLeft = `-${pixelWidth / 2}px`;
+  canvas.style.marginTop = `-${pixelHeight / 2}px`;
+  
+  // Log dimensions for debugging
+  console.log(`Canvas resized to ${canvas.width}x${canvas.height}, scale: ${scale}, preview area: ${previewWidth}x${previewHeight}`);
+}
+
+// Clear the canvas
+function clearCanvas() {
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// Direct game state rendering with forced test objects
+socket.on('game_state_update', (state) => {
+  console.log('[DEBUG] RECEIVED GAME STATE:', JSON.stringify(state));
+  
+  // Always make the preview area visible
+  previewArea.style.display = 'block';
+  
+  // Set flag for running preview
+  isPreviewRunning = true;
+  
+  // FORCE DISPLAY OF STOP BUTTON
+  stopButton.style.display = 'inline-block';
+  
+  // Get dimensions from state or use defaults
+  const gridWidth = 30;
+  const gridHeight = 30;
+  const cellSize = 15;
+  
+  // Resize canvas for the game
+  canvas.width = gridWidth * cellSize;
+  canvas.height = gridHeight * cellSize;
+  
+  // Clear the canvas with a dark background
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw grid lines (lighter color for visibility)
+  ctx.strokeStyle = '#666666';
+  ctx.lineWidth = 0.5;
+  
+  // Draw grid lines
+  for (let y = 0; y <= gridHeight; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * cellSize);
+    ctx.lineTo(canvas.width, y * cellSize);
+    ctx.stroke();
+  }
+  
+  for (let x = 0; x <= gridWidth; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * cellSize, 0);
+    ctx.lineTo(x * cellSize, canvas.height);
+    ctx.stroke();
+  }
+  
+  // ALWAYS DRAW TEST OBJECTS regardless of state
+  
+  // Draw test red square
+  ctx.fillStyle = '#ff0000';
+  ctx.fillRect(5 * cellSize, 5 * cellSize, cellSize, cellSize);
+  
+  // Draw test green square
+  ctx.fillStyle = '#00ff00';
+  ctx.fillRect(15 * cellSize, 15 * cellSize, cellSize, cellSize);
+  
+  // Draw test blue circle
+  ctx.fillStyle = '#0088ff';
+  ctx.beginPath();
+  ctx.arc(10 * cellSize + cellSize/2, 10 * cellSize + cellSize/2, cellSize/2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // ATTEMPT TO DRAW FOOD FROM STATE
+  if (state && state.food && Array.isArray(state.food) && state.food.length === 2) {
+    const [fx, fy] = state.food;
+    console.log("FOOD POSITION:", fx, fy);
+    
+    ctx.fillStyle = '#ff3333';
+    ctx.fillRect(fx * cellSize, fy * cellSize, cellSize, cellSize);
+  } else {
+    // Draw a forced food item if none in state
+    console.log("NO FOOD IN STATE - DRAWING TEST FOOD");
+    ctx.fillStyle = '#ff3333';
+    ctx.fillRect(25 * cellSize, 25 * cellSize, cellSize, cellSize);
+  }
+  
+  // ATTEMPT TO DRAW SNAKE FROM STATE
+  if (state && state.snake && Array.isArray(state.snake) && state.snake.length > 0) {
+    console.log("SNAKE LENGTH:", state.snake.length);
+    ctx.fillStyle = '#00ff66';
+    
+    state.snake.forEach((segment, index) => {
+      if (Array.isArray(segment) && segment.length === 2) {
+        const [sx, sy] = segment;
+        console.log("SNAKE SEGMENT:", sx, sy);
+        ctx.fillRect(sx * cellSize, sy * cellSize, cellSize, cellSize);
+      }
+    });
+  } else {
+    // Draw a forced snake if none in state
+    console.log("NO SNAKE IN STATE - DRAWING TEST SNAKE");
+    ctx.fillStyle = '#00ff66';
+    
+    // Draw a fake 3-segment snake
+    [[20, 15], [19, 15], [18, 15]].forEach(([sx, sy]) => {
+      ctx.fillRect(sx * cellSize, sy * cellSize, cellSize, cellSize);
+    });
+  }
+  
+  // Force the canvas to be visually on top
+  canvas.style.zIndex = '1000';
+  canvas.style.display = 'block';
+  
+  // Update the display text
+  overlayText.textContent = `Score: ${state?.score || 0}`;
+  
+  // Make sure dimensions are logged
+  console.log(`Canvas dimensions: ${canvas.width}x${canvas.height}, Visible: ${canvas.style.display}`);
+});
+
+// Start the preview with better error handling
+function startPreview() {
+  if (isPreviewRunning) {
+    console.log("Preview already running, stopping first");
+    stopPreview();
+    setTimeout(() => startPreviewImpl(), 500);
+    return;
+  }
+  
+  startPreviewImpl();
+}
+
+function startPreviewImpl() {
+  // Make sure socket is connected
+  if (!socket || !socket.connected) {
+    console.log("Socket not connected, attempting to connect...");
+    connectWebSocket();
+    
+    let attempts = 0;
+    const maxAttempts = 5;
+    const checkConnection = setInterval(() => {
+      attempts++;
+      if (socket && socket.connected) {
+        clearInterval(checkConnection);
+        emitStartPreview();
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkConnection);
+        runOutput.textContent = "❌ Failed to connect to preview server after multiple attempts. Please refresh and try again.";
+      }
+    }, 500);
+  } else {
+    emitStartPreview();
+  }
+}
+
+function emitStartPreview() {
+  playTransmit();
+  files[activeFile] = editor.getValue();
+  console.log("Sending code to server for preview");
+  runOutput.textContent = "🚀 Initializing Snake Preview...";
+  
+  lastGameState = null;
+  gameOverText.style.display = 'none';
+  overlayText.textContent = 'Score: 0';
+  previewArea.style.display = 'block';
+  
+  // Clear canvas
+  resizeCanvas(30, 30);
+  clearCanvas();
+  
+  // Setup keepalive for the running simulation
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+  
+  keepAliveInterval = setInterval(() => {
+    if (socket && socket.connected && isPreviewRunning) {
+      socket.emit('ping_keepalive', { time: Date.now() });
+      console.log("Sent keepalive ping");
+    } else if (!isPreviewRunning) {
+      clearInterval(keepAliveInterval);
+      keepAliveInterval = null;
+    }
+  }, 10000); // Every 10 seconds
+  
+  // Add a global fallback game state that will be used if no server data is received
+  let fallbackGameState = {
+    snake: [[15, 15], [14, 15], [13, 15]],
+    food: [20, 20],
+    direction: 'RIGHT',
+    score: 0,
+    active: false,
+    lastUpdate: 0,
+    frameRate: 200 // ms per frame
+  };
+
+  // Add a fallback rendering timeout in case no game state is received
+  setTimeout(() => {
+    if (isPreviewRunning && !lastGameState) {
+      console.log("FALLBACK: No game state received after timeout, starting client-side game");
+      
+      // Force dimensions
+      const gridWidth = 30;
+      const gridHeight = 30;
+      const cellSize = 15;
+      
+      // Start the fallback game loop
+      fallbackGameState.active = true;
+      fallbackGameState.lastUpdate = Date.now();
+      
+      // Setup fallback game loop
+      const fallbackGameLoop = setInterval(() => {
+        if (!isPreviewRunning || !fallbackGameState.active) {
+          clearInterval(fallbackGameLoop);
+          return;
+        }
+        
+        // Move snake based on direction
+        const head = [...fallbackGameState.snake[0]];
+        
+        // Update head position based on direction
+        switch (fallbackGameState.direction) {
+          case 'UP':
+            head[1] = (head[1] - 1 + gridHeight) % gridHeight;
+            break;
+          case 'DOWN':
+            head[1] = (head[1] + 1) % gridHeight;
+            break;
+          case 'LEFT':
+            head[0] = (head[0] - 1 + gridWidth) % gridWidth;
+            break;
+          case 'RIGHT':
+            head[0] = (head[0] + 1) % gridWidth;
+            break;
+        }
+        
+        // Check for collision with food
+        if (head[0] === fallbackGameState.food[0] && head[1] === fallbackGameState.food[1]) {
+          // Increase score
+          fallbackGameState.score += 10;
+          
+          // Update score display
+          overlayText.textContent = `Score: ${fallbackGameState.score}`;
+          
+          // Move food to a random position
+          fallbackGameState.food = [
+            Math.floor(Math.random() * gridWidth),
+            Math.floor(Math.random() * gridHeight)
+          ];
+          
+          // Don't remove tail - snake grows
+        } else {
+          // Remove tail if no food eaten
+          fallbackGameState.snake.pop();
+        }
+        
+        // Add new head
+        fallbackGameState.snake.unshift(head);
+        
+        // Check for collision with self (game over)
+        const isCollision = fallbackGameState.snake.slice(1).some(segment => 
+          segment[0] === head[0] && segment[1] === head[1]
+        );
+        
+        if (isCollision) {
+          // Game over
+          gameOverText.textContent = `GAME OVER\nFinal Score: ${fallbackGameState.score}`;
+          gameOverText.style.display = 'block';
+          fallbackGameState.active = false;
+          clearInterval(fallbackGameLoop);
+        }
+        
+        // Render the current state
+        renderFallbackGame();
+      }, fallbackGameState.frameRate);
+      
+      // Initial render
+      renderFallbackGame();
+      
+      // Show message
+      runOutput.textContent += "\n⚠️ Using fallback client-side game - WASD or arrow keys to move";
+    }
+  }, 3000); // After 3 seconds
+  
+  // Modify snake.py to add eventlet.sleep() calls to prevent blocking
+  if (files['snake.py']) {
+      // Set canvas size
+      canvas.width = gridWidth * cellSize;
+      canvas.height = gridHeight * cellSize;
+      
+      // Clear canvas
+      ctx.fillStyle = '#111111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw grid
+      ctx.strokeStyle = '#666666';
+      ctx.lineWidth = 0.5;
+      for (let y = 0; y <= gridHeight; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * cellSize);
+        ctx.lineTo(canvas.width, y * cellSize);
+        ctx.stroke();
+      }
+      for (let x = 0; x <= gridWidth; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * cellSize, 0);
+        ctx.lineTo(x * cellSize, canvas.height);
+        ctx.stroke();
+      }
+      
+      // Draw test objects
+      ctx.fillStyle = '#ff00ff'; // Magenta
+      ctx.fillRect(10 * cellSize, 10 * cellSize, cellSize, cellSize);
+      
+      ctx.fillStyle = '#ffaa00'; // Orange
+      ctx.fillRect(20 * cellSize, 20 * cellSize, cellSize, cellSize);
+      
+      // Draw test snake
+      ctx.fillStyle = '#00ff66'; // Green
+      [[15, 15], [14, 15], [13, 15]].forEach(([x, y]) => {
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      });
+      
+      // Show message
+      runOutput.textContent += "\n⚠️ Using fallback rendering - game may not be running correctly";
+    }
+  }, 3000); // After 3 seconds
+  
+  // Modify snake.py to add eventlet.sleep() calls to prevent blocking
+  if (files['snake.py']) {
+    let snakeCode = files['snake.py'];
+    
+    // Make sure the main game loop has eventlet.sleep() calls
+    if (snakeCode.includes('while not game_over:') && !snakeCode.includes('eventlet.sleep')) {
+      // Add import if needed
+      if (!snakeCode.includes('import eventlet')) {
+        snakeCode = 'import eventlet\n' + snakeCode;
+      }
+      
+      // Replace the main game loop with one that yields control
+      const loopPattern = /while\s+not\s+game_over\s*:([\s\S]*?)(?=\n\s*#|$)/;
+      const loopMatch = snakeCode.match(loopPattern);
+      
+      if (loopMatch) {
+        const loopBody = loopMatch[1];
+        const modifiedLoopBody = loopBody + '\n    # Yield control to eventlet to prevent blocking\n    eventlet.sleep(0.05)\n';
+        snakeCode = snakeCode.replace(loopPattern, 'while not game_over:' + modifiedLoopBody);
+      }
+      
+      // Also lower the snake speed if it's too high
+      const speedPattern = /SNAKE_SPEED\s*=\s*(\d+)/;
+      const speedMatch = files['constants.py']?.match(speedPattern);
+      if (speedMatch && parseInt(speedMatch[1]) > 10) {
+        files['constants.py'] = files['constants.py'].replace(speedPattern, 'SNAKE_SPEED = 5');
+      }
+      
+      // Save the modified code
+      files['snake.py'] = snakeCode;
+      console.log("Modified snake.py to add eventlet.sleep() calls");
+    }
+  }
+  
+  // Send the actual request
+  socket.emit('start_snake_preview', { files: files });
+  
+  // Set focus to preview area for keyboard input
+  setTimeout(() => {
+    previewArea.focus();
+    console.log("Focus set to preview area");
+  }, 100);
+  
+  // Set a timeout to check if the preview started
+  setTimeout(() => {
+    if (!isPreviewRunning) {
+      runOutput.textContent += "\n⏳ Still waiting for server response...";
+    }
+  }, 3000);
+}
+
+// Clean up resources
+function cleanupPreview() {
+  isPreviewRunning = false;
+  stopButton.style.display = 'none';
+  previewArea.style.display = 'none';
+  
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
+  
+  // Log the cleanup
+  console.log("Preview cleaned up");
+}
+
+// Improved stop preview
+function stopPreview() {
+  playTransmit();
+  
+  if (!isPreviewRunning) {
+    console.log("No preview running, nothing to stop");
+    return;
+  }
+  
+  if (socket && socket.connected) {
+    console.log("Requesting preview stop...");
+    runOutput.textContent += "\n⏹️ Stopping preview...";
+    
+    // Send stop request
+    socket.emit('stop_snake_preview');
+    
+    // Force cleanup after a delay if no response
+    setTimeout(() => {
+      if (isPreviewRunning) {
+        console.log("No stop confirmation received, forcing cleanup");
+        cleanupPreview();
+      }
+    }, 1000);
+  } else {
+    cleanupPreview();
+  }
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  if (isPreviewRunning && lastGameState) {
+    drawGameState();
+  }
+});
+
+// COMPLETELY REWRITTEN KEYBOARD HANDLING - NOW HANDLES BOTH SERVER AND FALLBACK GAME
+function handleKeyDown(event) {
+  // Handle fallback game if active
+  if (fallbackGameState.active) {
+    // Process WASD and arrow keys
+    let direction = null;
+    switch (event.key) {
+      case "ArrowUp":
+      case "w":
+      case "W":
+        direction = 'UP';
+        // Don't allow reversing direction
+        if (fallbackGameState.direction !== 'DOWN') {
+          fallbackGameState.direction = direction;
+        }
+        break;
+      case "ArrowDown":
+      case "s":
+      case "S":
+        direction = 'DOWN';
+        if (fallbackGameState.direction !== 'UP') {
+          fallbackGameState.direction = direction;
+        }
+        break;
+      case "ArrowLeft":
+      case "a":
+      case "A":
+        direction = 'LEFT';
+        if (fallbackGameState.direction !== 'RIGHT') {
+          fallbackGameState.direction = direction;
+        }
+        break;
+      case "ArrowRight":
+      case "d":
+      case "D":
+        direction = 'RIGHT';
+        if (fallbackGameState.direction !== 'LEFT') {
+          fallbackGameState.direction = direction;
+        }
+        break;
+    }
+    
+    if (direction) {
+      event.preventDefault();
+      console.log("Fallback game direction:", direction);
+    }
+    return;
+  }
+  
+  // Original code for server-side game
+  // Only process if the preview is running and we're connected
+  if (!isPreviewRunning || !socket || !socket.connected) {
+    return;
+  }
+  
+  // Process WASD and arrow keys
+  let direction = null;
+  switch (event.key) {
+    case "ArrowUp":
+    case "w":
+    case "W":
+      direction = 'UP';
+      break;
+    case "ArrowDown":
+    case "s":
+    case "S":
+      direction = 'DOWN';
+      break;
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      direction = 'LEFT';
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      direction = 'RIGHT';
+      break;
+  }
+  
+  // If we identified a direction, send it to the server
+  if (direction) {
+    event.preventDefault();
+    console.log("Sending direction:", direction);
+    
+    // This is the key part - we need to send the direction to the server
+    socket.emit('change_direction', { direction: direction });
+    
+    // Provide user feedback in the console
+    runOutput.textContent = `Direction: ${direction}\n` + runOutput.textContent;
+  }
+}
+
+// Make sure we're using the right event listener setup
+document.addEventListener('keydown', handleKeyDown);
+
+// Focus handler for preview area
+previewArea.addEventListener('click', function() {
+  if (isPreviewRunning) {
+    console.log("Preview area clicked, focusing");
+    previewArea.focus();
+  }
+});
+
+// --- Initial Setup ---
+renderTabs();
+connectWebSocket();
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    editor.resize(true);
+    console.log("Forced editor resize on load");
+  }, 100);
+});
+  
+const mainPaneForResize = document.getElementById("mainPane");
+mainPaneForResize.addEventListener('transitionend', () => {
+  console.log("Resizing editor after mainPane transition.");
+  editor.resize(true);
+});
+  
+setTimeout(() => {
+  editor.resize(true);
+  console.log("Initial forced resize");
+}, 50);
+
+// --- Initial Setup ---
+// Improved socket connection
+function connectWebSocket() {
+  if (socket && socket.connected) { 
+    console.log("Socket already connected, reusing connection");
+    return socket; 
+  }
+  
+  console.log("Connecting to WebSocket...");
+  
+  // Close any existing socket
+  if (socket) {
+    try {
+      socket.disconnect();
+    } catch (e) {
+      console.warn("Error disconnecting old socket:", e);
+    }
+  }
+  
+  // Create new socket with improved parameters
+  socket = io({ transports: ["websocket"], upgrade: false });
+  
+  socket.on('connect', () => { 
+    console.log('WebSocket connected:', socket.id);
+    runOutput.textContent += '\n🔌 Connected to preview server';
+  });
+  
+  socket.on('disconnect', (reason) => { 
+    console.log('WebSocket disconnected:', reason);
+    runOutput.textContent += `\n🔌 Disconnected: ${reason}`;
+    cleanupPreview();
+  });
+  
+  socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    runOutput.textContent += `\n❌ Connection error: ${error.message}`;
+  });
+  
+  socket.on('auth_error', (data) => { 
+    console.error('Authentication Error:', data.message);
+    runOutput.textContent += `\n❌ Authentication error: ${data.message}`;
+    cleanupPreview();
+    socket.disconnect();
+  });
+  
+  socket.on('preview_started', (data) => { 
+    console.log('Preview started:', data.message);
+    runOutput.textContent = `🐍 Snake Preview Running...\n`;
+    isPreviewRunning = true;
+    stopButton.style.display = 'inline-block';
+    previewArea.style.display = 'block';
+    gameOverText.style.display = 'none';
+    
+    // Set up initial canvas with default values
+    resizeCanvas(30, 30);
+    clearCanvas();
+    
+    // Draw grid lines to show preview is active
+    ctx.strokeStyle = GRID_COLOR;
+    ctx.lineWidth = 0.5;
+    
+    // Draw horizontal grid lines
+    for (let y = 0; y <= 30; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * CELL_SIZE);
+      ctx.lineTo(30 * CELL_SIZE, y * CELL_SIZE);
+      ctx.stroke();
+    }
+    
+    // Draw vertical grid lines
+    for (let x = 0; x <= 30; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * CELL_SIZE, 0);
+      ctx.lineTo(x * CELL_SIZE, 30 * CELL_SIZE);
+      ctx.stroke();
+    }
+    
+    // Force a redraw if we have state
+    if (lastGameState) {
+      drawGameState();
+    }
+  });
+  
+  socket.on('preview_stopped', (data) => { 
+    console.log('Preview stopped:', data.message);
+    runOutput.textContent += `\n⏹️ Preview stopped: ${data.message}`;
+    cleanupPreview();
+  });
+  
+  socket.on('preview_output', (data) => { 
+    if (data && data.output) {
+      console.log('Preview Output:', data.output);
+      runOutput.textContent += data.output;
+      runOutput.scrollTop = runOutput.scrollHeight;
+    }
+  });
+  
+  socket.on('preview_error', (data) => { 
+    console.error('Preview Error:', data.error);
+    runOutput.textContent += `\n❌ Error: ${data.error}`;
+    runOutput.scrollTop = runOutput.scrollHeight;
+    cleanupPreview();
+  });
+  
+  return socket;
+}
+
+// Function to render the fallback game
+function renderFallbackGame() {
+  // Force dimensions
+  const gridWidth = 30;
+  const gridHeight = 30;
+  const cellSize = 15;
+  
+  // Set canvas size
+  canvas.width = gridWidth * cellSize;
+  canvas.height = gridHeight * cellSize;
+  
+  // Clear canvas
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw grid
+  ctx.strokeStyle = '#444444';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y <= gridHeight; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * cellSize);
+    ctx.lineTo(canvas.width, y * cellSize);
+    ctx.stroke();
+  }
+  for (let x = 0; x <= gridWidth; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * cellSize, 0);
+    ctx.lineTo(x * cellSize, canvas.height);
+    ctx.stroke();
+  }
+  
+  // Draw food
+  ctx.fillStyle = '#ff3333'; // Bright red
+  const [fx, fy] = fallbackGameState.food;
+  ctx.beginPath();
+  ctx.arc(
+    fx * cellSize + cellSize/2, 
+    fy * cellSize + cellSize/2, 
+    cellSize/2 - 1, 
+    0, 
+    Math.PI * 2
+  );
+  ctx.fill();
+  
+  // Draw snake
+  ctx.fillStyle = '#00ff66'; // Bright green
+  fallbackGameState.snake.forEach((segment, index) => {
+    const [sx, sy] = segment;
+    
+    // Draw head as circle, body as squares
+    if (index === 0) {
+      // Head
+      ctx.beginPath();
+      ctx.arc(
+        sx * cellSize + cellSize/2, 
+        sy * cellSize + cellSize/2, 
+        cellSize/2 - 1, 
+        0, 
+        Math.PI * 2
+      );
+      ctx.fill();
+    } else {
+      // Body segments
+      const margin = 1;
+      ctx.fillRect(
+        sx * cellSize + margin, 
+        sy * cellSize + margin, 
+        cellSize - (margin * 2), 
+        cellSize - (margin * 2)
+      );
+    }
+  });
+}
+</script>
+<script src="{{ url_for('static', filename='js/bgm_handler.js') }}"></script>
+
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Bytecode Viewer</title>
+  <style>
+    body { background:#111; color:#0f0; font-family: monospace; }
+    #canvasWrap { text-align: center; }
+    canvas { background:#222; border:1px solid #444; }
+    select { margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <h1>Snake Bytecode Viewer</h1>
+  <div id="canvasWrap">
+    <select id="fileSelect" onchange="drawBytecode()">
+      {% for name in files.keys() %}
+      <option value="{{ name }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+    <canvas id="byteCanvas" width="600" height="400"></canvas>
+  </div>
+  <script>
+    const compiled = {{ compiled|tojson }};
+    const canvas = document.getElementById('byteCanvas');
+    const ctx = canvas.getContext('2d');
+    function drawBytecode(){
+      const sel = document.getElementById('fileSelect');
+      const data = compiled[sel.value] || '';
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#0f0';
+      ctx.font = '14px monospace';
+      const lines = data.split('\n');
+      let y = 20;
+      for(const line of lines){
+        if(y>canvas.height-10) break;
+        ctx.fillText(line, 10, y);
+        y += 16;
+      }
+    }
+    drawBytecode();
+  </script>
+</body>
+</html>

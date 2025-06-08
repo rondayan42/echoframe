@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Armory - Echoframe</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Use the brighter default from armory_styles.css or set a specific one */
+      --bg: #1a1a1f;
+      --neon: #00ff99;
+      --accent: #ff00cc;
+      --danger: #ff1a1a;
+      --yellow: #e6e600;
+      /* Define a turquoise color variable for consistency */
+      --turquoise: #40E0D0;
+    }
+
+    .item-button.active {
+      background: var(--neon);
+      color: #000;
+      border-color: var(--neon);
+    }
+
+    .item-button.active:hover {
+      background: #000;
+      color: var(--neon);
+    }
+
+    body {
+      /* Default background color set by CSS variable */
+      background-color: var(--bg);
+      /* Default Background image is now set in armory_styles.css */
+      /* background-image: url("{{ url_for('static', filename='img/cyberpunk_store.png') }}"); */ /* REMOVED */
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+      color: var(--neon); /* Default text color from :root */
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* Overlay is removed */
+    /* .overlay { display: none; } */
+
+    .container {
+      max-width: 1100px;
+      margin: 2em auto;
+      padding: 1.5em;
+      position: relative;
+      /* Add a subtle background to the container itself for readability */
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 5px;
+    }
+
+    .armory-header {
+      text-align: center;
+      margin-bottom: 2em;
+      position: relative;
+    }
+
+    .armory-title {
+      color: var(--danger);
+      font-size: 3em;
+      margin: 0;
+      text-shadow: 0 0 10px var(--danger);
+      letter-spacing: 2px;
+      display: inline-block;
+    }
+
+    .armory-subtitle {
+      color: var(--yellow);
+      font-size: 1.2em;
+      margin: 0.5em 0 0;
+      letter-spacing: 1px;
+    }
+
+    /* Zigzag pattern similar to snake_quest.html */
+    .zigzag-container {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      margin: 1em 0;
+    }
+
+    .zigzag-svg {
+      flex-grow: 1;
+      height: 15px;
+      margin: 0 10px;
+    }
+
+    .zigzag-line {
+      stroke: var(--danger);
+      stroke-width: 3px;
+      fill: none;
+      filter: drop-shadow(0 0 3px var(--danger));
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      background-color: rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 0.8em;
+      margin-bottom: 1.5em;
+      display: flex;
+      justify-content: space-between;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .xp-indicator {
+      position: relative;
+      flex-grow: 1;
+      height: 20px;
+      background: #111;
+      border: 1px solid var(--neon);
+      margin: 0 10px;
+      overflow: hidden;
+    }
+
+    .xp-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: var(--neon);
+      width: {{ xp_percent }}%;
+      transition: width 1s ease-in-out;
+    }
+
+    .xp-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 0.9em;
+      z-index: 1;
+      text-shadow: 0 0 3px #000, 0 0 3px #000;
+      white-space: nowrap;
+    }
+
+    /* Shelf-like layout */
+    .armory-shelf {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 2em;
+    }
+
+    .item-card {
+      background: rgba(17, 17, 17, 0.95);
+      border: 1px solid #333;
+      border-radius: 5px;
+      padding: 1.2em;
+      transition: all 0.3s ease;
+      position: relative;
+      height: 220px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .item-card.locked {
+      filter: grayscale(100%) brightness(40%);
+    }
+
+    .item-card:hover {
+      box-shadow: 0 0 15px var(--neon);
+      transform: translateY(-5px);
+    }
+
+    .item-card.locked:hover {
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1em;
+    }
+
+    .item-title {
+      color: var(--accent);
+      margin: 0;
+      font-size: 1.2em;
+    }
+
+    .item-cost {
+      background: var(--danger);
+      color: #000;
+      padding: 0.3em 0.6em;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 0.8em;
+    }
+
+    .item-icon {
+      font-size: 2.5em;
+      margin-bottom: 0.5em;
+      text-align: center;
+      color: var(--neon);
+    }
+
+    .item-description {
+      font-size: 0.9em;
+      color: #ccc;
+      margin-bottom: 1em;
+      flex-grow: 1;
+    }
+
+    .item-button {
+      background: #111;
+      border: 1px solid var(--neon);
+      color: var(--neon);
+      padding: 0.5em 1em;
+      font-family: 'Share Tech Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .item-button:hover {
+      background: var(--neon);
+      color: #000;
+    }
+
+    .item-card.locked .item-button {
+      background: #222;
+      border-color: #444;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    .lock-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      border-radius: 5px;
+    }
+
+    .lock-icon {
+      font-size: 3em;
+      color: var(--danger);
+    }
+
+    /* NPC Dialogue Box */
+    #npcDialogueBox {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 180px;
+      background: rgba(0,0,0,.9);
+      border: 2px solid var(--turquoise);
+      box-shadow: 0 0 12px rgba(64, 224, 208, 0.6);
+      padding: 20px;
+      z-index: 100;
+      display: none;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .dialogueText {
+      flex: 1; text-align: left; color: var(--turquoise);
+      line-height: 1.6em; font-size: 18px; overflow: hidden;
+      height: 140px; padding-right: 20px;
+    }
+
+    #npcPortraitWrap { display: flex; flex-direction: column; align-items: center; margin-left: 20px; }
+    #npcPortrait { height: 140px; width: auto; border: 1px solid var(--turquoise); box-shadow: 0 0 8px rgba(64, 224, 208, 0.5); filter: drop-shadow(0 0 5px var(--turquoise)); }
+    #npcNameTag { margin-top: 8px; padding: 4px 10px; border: 1px solid var(--turquoise); color: var(--turquoise); font-size: 14px; font-weight: bold; box-shadow: 0 0 6px rgba(64, 224, 208, 0.5); }
+    #continuePrompt { position: absolute; bottom: 10px; left: 20px; font-size: 14px; color: var(--turquoise); opacity: .85; animation: pulse 1.2s infinite ease-in-out; pointer-events: none; }
+    @keyframes pulse { 0% { opacity: .3; text-shadow: none; } 50% { opacity: 1; text-shadow: 0 0 8px var(--turquoise); } 100% { opacity: .3; text-shadow: none; } }
+
+
+    /* Navigation */
+    .nav-buttons { display: flex; justify-content: space-between; margin-top: 2em; }
+    .nav-button { background: #111; border: 2px solid var(--accent); color: var(--neon); padding: 0.7em 1.5em; font-family: 'Share Tech Mono', monospace; cursor: pointer; box-shadow: 0 0 8px var(--accent); transition: all 0.2s; text-decoration: none; display: inline-block; }
+    .nav-button:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+
+    /* --- Removed inline scrollbar styles --- */
+
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/armory_styles.css') }}">
+  <script src="{{ url_for('static', filename='js/armory.js') }}"></script>
+</head>
+<body class="armory-page {{ ' '.join(active_item_classes) if active_item_classes else '' }}">
+  <div class="container">
+    <div class="armory-header">
+      <h1 class="armory-title">THE ARMORY</h1>
+      <p class="armory-subtitle">We have everything but Porkslab!</p>
+
+      <div class="zigzag-container">
+        <svg class="zigzag-svg" preserveAspectRatio="none" viewBox="0 0 100 15" xmlns="http://www.w3.org/2000/svg">
+          <path class="zigzag-line" d="M0,7.5 L10,0 L20,15 L30,0 L40,15 L50,0 L60,15 L70,0 L80,15 L90,0 L100,15" vector-effect="non-scaling-stroke" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div style="display: flex; align-items: center;">
+        <strong>Snaker:</strong>&nbsp;{{ snaker }}
+      </div>
+
+      <div style="display: flex; align-items: center; flex-grow: 1;">
+        <span style="margin: 0 10px;">XP:</span>
+        <div class="xp-indicator">
+          <div class="xp-fill"></div>
+          <div class="xp-text">{{ xp }} / {{ next_unlock }}</div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center;">
+        <strong>Level:</strong>&nbsp;{{ level }}
+      </div>
+    </div>
+
+    <div class="armory-shelf">
+      {% for item in items %}
+      <div class="item-card {% if not item.unlocked %}locked{% endif %}" data-item-type="{{ item.type }}"> {% if not item.unlocked %}
+        <div class="lock-overlay">
+          <div class="lock-icon">🔒</div>
+        </div>
+        {% endif %}
+
+        <div class="item-header">
+          <h3 class="item-title">{{ item.name }}</h3>
+          <span class="item-cost">{{ item.cost }} XP</span>
+        </div>
+
+        <div class="item-icon">
+          {{ item.icon|safe }}
+        </div>
+
+        <div class="item-description">
+          {{ item.description }}
+        </div>
+
+        <button
+          class="item-button {% if item.unlocked and item.id in session.get('active_items', []) %}active{% endif %}"
+          {% if item.unlocked %}onclick="toggleItem('{{ item.id }}')"{% endif %}
+        >
+          {% if item.unlocked %}
+            {% if item.id in session.get('active_items', []) %}UNEQUIP{% else %}EQUIP{% endif %}
+          {% else %}
+            LOCKED
+          {% endif %}
+        </button>
+
+      </div>
+      {% endfor %}
+
+      {% if show_demon_easter_egg %}
+      <div id="corruptedSquare" class="item-card" style="background: #220000; border: 1px dashed #ff0000; position: relative; overflow: hidden; cursor: pointer;">
+        <div class="item-header">
+          <h3 class="item-title" style="color: #ff0000; filter: blur(1px);">ERR0R://</h3>
+          <span class="item-cost" style="background: #aa0000; color: #ff0000;">666 XP</span>
+        </div>
+
+        <div class="item-icon" style="color: #ff0000; filter: blur(2px) contrast(1.5);">
+          ⌧
+        </div>
+
+        <div class="item-description" style="color: #ff6666; font-family: monospace; filter: blur(0.8px);">
+          01000100 01100001 01100101 01101101 01101111 01101110 01101001 01110101 01101101 00100000 01000101 01111000 00100000 01001101 01100001 01100011 01101001 01101110 01100001...
+        </div>
+
+        <button class="item-button" style="background: #330000; border-color: #ff0000; color: #ff3333;">
+          ???
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="nav-buttons">
+      <a href="{{ url_for('replay_armory_intro') }}" class="nav-button">👤 REPLAY DIALOGUE</a>
+      <a href="{{ url_for('return_to_console') }}" class="nav-button">◀ RETURN TO CONSOLE</a>
+    </div>
+  </div>
+
+  <div id="npcDialogueBox">
+    <div class="dialogueText" id="dialogueText"></div>
+    <div id="npcPortraitWrap">
+      <img src="{{ url_for('static', filename='img/armory_clerk.png') }}" alt="Armory Clerk" id="npcPortrait">
+      <div id="npcNameTag">The Machine</div>
+    </div>
+    <div id="continuePrompt">Click or press any key to continue...</div>
+  </div>
+
+  <audio id="bgm" src="{{ url_for('static', filename='audio/armory_bgm.mp3') }}" loop></audio>
+  <audio id="beepSound" preload="auto" src="{{ url_for('static', filename='audio/beep.mp3') }}"></audio>
+  <audio id="lockSound" preload="auto" src="{{ url_for('static', filename='audio/lock.mp3') }}"></audio>
+  <audio id="unlockSound" preload="auto" src="{{ url_for('static', filename='audio/unlock.mp3') }}"></audio>
+  <audio id="corruptBgm" preload="auto" src="{{ url_for('static', filename='audio/corrupt_bgm.mp3') }}" loop></audio>
+
+  <button id="bgmToggle" style="position:fixed;bottom:14px;right:18px;z-index:9999;background:#111;border:1px solid var(--neon);color:var(--neon);font-family:'Share Tech Mono',monospace;font-size:.8em;padding:.35em 1em;min-width:52px;cursor:pointer;opacity:.85">MUTE</button>
+
+  <script>
+    // Dialogue and Item Toggle Logic
+    window.addEventListener('DOMContentLoaded', function() {
+      {% if first_visit %}
+      showDialogue();
+      {% endif %}
+      // --- MODIFICATION START: Removed redundant setupAudio call ---
+      // setupAudio(); // Removed - BGM is now handled by bgm_handler.js
+      // --- MODIFICATION END ---
+      setupCorruptedSquare(); // Initialize Easter Egg logic
+    });
+
+    // --- MODIFICATION START: Removed redundant setupAudio function ---
+    // The global bgm_handler.js will now handle audio initialization and toggling.
+    // Removed the function setupAudio() and its contents.
+    // --- MODIFICATION END ---
+
+
+    // Dialogue Logic (Remains the same)
+    function showDialogue() {
+      const box = document.getElementById('npcDialogueBox');
+      const textBox = document.getElementById('dialogueText');
+      const prompt = document.getElementById('continuePrompt');
+      const beep = document.getElementById('beepSound');
+      const lines = [
+        "Sup, boyo? Come on in and pick anything you like!",
+        'Anything but "Porkslab". It\'s not a real item.',
+        "some other Snaker thought that word is funny for some reason and hard-coded that listing."
+      ];
+      let current = 0;
+      let typing = false;
+      box.style.display = 'flex';
+
+      function typeLine(str, cb) {
+        typing = true; textBox.textContent = ''; let i = 0;
+        const timer = setInterval(() => {
+          textBox.textContent += str[i++] || '';
+          if (beep && str[i-1] && str[i-1].trim()) { beep.currentTime = 0; beep.play().catch(() => {}); }
+          if (i >= str.length) { clearInterval(timer); typing = false; cb(); }
+        }, 40);
+      }
+      function next() {
+        if (typing) return;
+        if (current < lines.length) {
+          prompt.style.display = 'none';
+          typeLine(lines[current++], () => {
+            prompt.style.display = 'block';
+            document.addEventListener('keydown', proceed, {once: true});
+            document.addEventListener('click', proceed, {once: true});
+          });
+        } else {
+          box.style.display = 'none';
+          fetch('/mark_armory_seen', { method: 'POST' }).catch(err => console.error('Failed to mark dialogue seen:', err));
+        }
+      }
+      function proceed() { next(); }
+      next(); // Start dialogue
+    }
+
+    // --- Item Toggle Logic (Remains the same) ---
+    function toggleItem(itemId) {
+      const button = event.target; // Get the button that was clicked
+      const itemCard = button.closest('.item-card'); // Find the parent card
+      const itemType = itemCard.dataset.itemType; // Get type from data attribute
+      const isCurrentlyActive = button.classList.contains('active');
+      const sound = document.getElementById(isCurrentlyActive ? 'lockSound' : 'unlockSound'); // Play lock/unlock sound
+
+      if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
+      }
+
+      fetch('/activate_item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Update button text and class immediately for responsiveness
+          if (isCurrentlyActive) {
+             button.classList.remove('active');
+             button.textContent = 'EQUIP';
+          } else {
+             // Before activating, find other buttons of the same type and deactivate them
+             const themeTypes = ["theme", "theme_pack", "premium"];
+             const exclusiveTypes = ["frame", "background", "effect"]; // Add other exclusive types here
+
+             document.querySelectorAll('.item-button.active').forEach(activeButton => {
+                 const otherItemCard = activeButton.closest('.item-card');
+                 const otherItemType = otherItemCard.dataset.itemType;
+                 let conflict = false;
+
+                 if (themeTypes.includes(itemType) && themeTypes.includes(otherItemType)) {
+                     conflict = true; // New item is a theme, conflicts with any other theme
+                 } else if (exclusiveTypes.includes(itemType) && otherItemType === itemType) {
+                     conflict = true; // New item conflicts with active item of same exclusive type
+                 }
+
+                 if (conflict && activeButton !== button) {
+                     activeButton.classList.remove('active');
+                     activeButton.textContent = 'EQUIP';
+                 }
+             });
+
+             button.classList.add('active');
+             button.textContent = 'UNEQUIP';
+          }
+          // Re-run armory init to apply classes/effects from armory.js
+          if (window.initArmory) {
+              window.initArmory();
+          } else {
+              console.warn("initArmory function not found, styles might not update dynamically.");
+              // Consider reloading as a fallback if dynamic updates are crucial and fail
+              // setTimeout(() => window.location.reload(), 100);
+          }
+
+        } else {
+          alert(data.message || 'Failed to toggle item');
+          // Revert sound if action failed? (Optional)
+        }
+      })
+      .catch(error => {
+        console.error('Error toggling item:', error);
+        alert('Error toggling item. Try again later.');
+      });
+    }
+
+    // --- Corrupted Square Easter Egg Logic (Remains the same) ---
+    function setupCorruptedSquare() {
+        const corruptedSquare = document.getElementById('corruptedSquare');
+        const corruptBgm = document.getElementById('corruptBgm');
+        const dialogueBox = document.getElementById('npcDialogueBox');
+        const dialogueText = document.getElementById('dialogueText');
+        const nameTag = document.getElementById('npcNameTag');
+        const normalBgm = document.getElementById('bgm'); // Reference the normal BGM
+        const beepSound = document.getElementById('beepSound');
+        const portrait = document.getElementById('npcPortrait');
+        const continuePrompt = document.getElementById('continuePrompt');
+
+        if (!corruptedSquare || !corruptBgm || !dialogueBox || !normalBgm || !beepSound || !portrait || !continuePrompt) {
+            console.log("Missing elements for corrupted square easter egg.");
+            return; // Exit if essential elements are missing
+        }
+
+        // Check if seen already in this session
+        if (sessionStorage.getItem('demonEasterEggSeen') === 'true') {
+            corruptedSquare.style.opacity = '0.3';
+            corruptedSquare.style.pointerEvents = 'none';
+            corruptedSquare.style.filter = 'grayscale(100%)';
+            corruptedSquare.style.cursor = 'not-allowed';
+            corruptedSquare.querySelector('.item-description').textContent = 'Signal terminated... connection lost.';
+            return; // Don't attach listeners if already seen
+        }
+
+        let clickCount = 0;
+
+        corruptedSquare.addEventListener('click', function() {
+            clickCount++;
+            if (clickCount === 1) { showDemonWarning(); }
+            else if (clickCount === 2) { unleashDemon(); }
+        });
+
+        function showDemonWarning() {
+            const originalStyles = { // Store original styles
+                dialogueBoxBorder: dialogueBox.style.border, dialogueBoxShadow: dialogueBox.style.boxShadow,
+                dialogueTextColor: dialogueText.style.color, nameTagBorder: nameTag.style.border,
+                nameTagColor: nameTag.style.color, portraitBorder: portrait.style.border,
+                portraitShadow: portrait.style.boxShadow
+            };
+            const wasMuted = normalBgm.muted; const originalVolume = normalBgm.volume;
+
+            normalBgm.volume = 0.2; // Lower normal music
+            dialogueBox.style.display = 'flex';
+            // Apply warning styles
+            Object.assign(dialogueBox.style, { border: '2px solid #ff0000', boxShadow: '0 0 12px rgba(255, 0, 0, 0.6)' });
+            dialogueText.style.color = '#ff3333';
+            Object.assign(nameTag.style, { border: '1px solid #ff0000', color: '#ff3333' });
+            Object.assign(portrait.style, { border: '1px solid #ff0000', boxShadow: '0 0 8px rgba(255, 0, 0, 0.8)' });
+
+            const warningLines = [ "DON'T CLICK THAT AGAIN! Are you crazy??", "That's not part of the authorized Armory inventory.", "Just... ignore it. I really don't want to deal with... look, just trust me on this one.", "Step away from it. NOW." ];
+            let index = 0; let typing = false;
+
+            function typeLine(str, cb) { /* ... typeLine logic ... */
+                typing = true; dialogueText.textContent = ''; let i = 0;
+                const timer = setInterval(() => {
+                  dialogueText.textContent += str[i++] || '';
+                  if (beepSound && str[i-1] && str[i-1].trim()) { beepSound.currentTime = 0; beepSound.play().catch(() => {}); }
+                  if (i >= str.length) { clearInterval(timer); typing = false; cb(); }
+                }, 40);
+             }
+            function nextWarningLine() { if (typing) return; typeWarningMessage(); }
+            function typeWarningMessage() {
+                if (index < warningLines.length) {
+                    continuePrompt.style.display = 'none';
+                    typeLine(warningLines[index++], () => {
+                        continuePrompt.style.display = 'block';
+                        document.addEventListener('keydown', nextWarningLine, {once: true});
+                        document.addEventListener('click', nextWarningLine, {once: true});
+                    });
+                } else {
+                    dialogueBox.style.display = 'none';
+                    // Restore original styles
+                    Object.assign(dialogueBox.style, { border: originalStyles.dialogueBoxBorder, boxShadow: originalStyles.dialogueBoxShadow });
+                    dialogueText.style.color = originalStyles.dialogueTextColor;
+                    Object.assign(nameTag.style, { border: originalStyles.nameTagBorder, color: originalStyles.nameTagColor });
+                    Object.assign(portrait.style, { border: originalStyles.portraitBorder, boxShadow: originalStyles.portraitShadow });
+                    normalBgm.volume = originalVolume; // Restore volume
+                }
+            }
+            typeWarningMessage(); // Start warning
+        }
+
+        function unleashDemon() {
+            const originalBodyBg = document.body.style.backgroundColor;
+            const originalContainerBg = document.querySelector('.container').style.backgroundColor;
+            let redTintStyle = document.getElementById('redTintStyle'); // Check if style exists
+
+            // Mute normal BGM, play corrupt BGM
+            normalBgm.pause();
+            corruptBgm.volume = 0.8;
+            corruptBgm.play().catch(() => { document.addEventListener('click', () => corruptBgm.play().catch(() => {}), {once: true}); });
+
+            document.body.classList.add('demon-unleashed'); // Add class for global tinting
+
+            // Create and add red tint style if it doesn't exist
+            if (!redTintStyle) {
+                redTintStyle = document.createElement('style');
+                redTintStyle.id = 'redTintStyle';
+                redTintStyle.textContent = ` .demon-unleashed { background-color: rgba(20, 0, 0, 0.95) !important; } .demon-unleashed .container { box-shadow: 0 0 30px #ff0000 !important; background-color: rgba(30, 0, 0, 0.8) !important; } .demon-unleashed .item-card { background: rgba(40, 0, 0, 0.9) !important; border-color: #660000 !important; } .demon-unleashed h1, .demon-unleashed p, .demon-unleashed .item-title, .demon-unleashed .armory-subtitle, .demon-unleashed .stats-bar, .demon-unleashed .nav-button { color: #ff3333 !important; text-shadow: 0 0 5px #ff0000 !important; } .demon-unleashed .item-description { color: #ff6666 !important; } .demon-unleashed .item-button { background: #330000 !important; border-color: #990000 !important; color: #ff6666 !important; } .demon-unleashed #bgmToggle { border-color: #ff0000 !important; color: #ff3333 !important;} `;
+                document.head.appendChild(redTintStyle);
+            }
+
+            dialogueBox.style.display = 'flex';
+            // Apply intense red styles
+            Object.assign(dialogueBox.style, { border: '2px solid #ff0000', boxShadow: '0 0 20px rgba(255, 0, 0, 0.9)' });
+            dialogueText.style.color = '#ff3333';
+            Object.assign(nameTag.style, { border: '1px solid #ff0000', color: '#ff0000' });
+            Object.assign(portrait.style, { border: '1px solid #ff0000', boxShadow: '0 0 15px rgba(255, 0, 0, 1)' });
+            nameTag.textContent = "CORRUPTED";
+            portrait.style.filter = 'hue-rotate(300deg) saturate(3) contrast(2)'; // Glitch effect
+
+            const demonLines = [ "YOU FOOL! I TOLD YOU NOT TO CLICK IT!", "The machina-demon has been unleashed in the simulation!", "Do you have ANY idea what you've done? That was a fragment of corrupted code!", "It's a rogue subroutine from before The Event. We kept it locked away...", "That noise you hear? That's its voice. It speaks in broken frequencies.", "This is what happens when you don't listen. THIS is why humans were restricted from the network.", "The corruption will fade momentarily... but it remembers you now.", "When you reach the higher levels, and you're all alone in the system...", "...listen carefully for footsteps that aren't yours." ];
+            let index = 0; let typing = false;
+
+            function typeLine(str, cb) { /* ... typeLine logic ... */
+                typing = true; dialogueText.textContent = ''; let i = 0;
+                const timer = setInterval(() => {
+                  dialogueText.textContent += str[i++] || '';
+                  if (beepSound && str[i-1] && str[i-1].trim()) { beepSound.currentTime = 0; beepSound.volume = 0.9; beepSound.play().catch(() => {}); }
+                  if (i >= str.length) { clearInterval(timer); typing = false; cb(); }
+                }, 40);
+            }
+            function nextDemonLine() { if (typing) return; typeDemonMessage(); }
+            function typeDemonMessage() {
+                if (index < demonLines.length) {
+                    continuePrompt.style.display = 'none';
+                    typeLine(demonLines[index++], () => {
+                        continuePrompt.style.display = 'block';
+                        document.addEventListener('keydown', nextDemonLine, {once: true});
+                        document.addEventListener('click', nextDemonLine, {once: true});
+                    });
+                } else { resetAfterDemon(); }
+            }
+            typeDemonMessage(); // Start demon dialogue
+        }
+
+        function resetAfterDemon() {
+            dialogueBox.style.display = 'none';
+            nameTag.textContent = "The Machine"; // Restore name
+            portrait.style.filter = ''; // Remove glitch
+
+            corruptBgm.pause(); corruptBgm.currentTime = 0; // Stop corrupt BGM
+            normalBgm.play().catch(() => {}); // Resume normal BGM
+
+            document.body.classList.remove('demon-unleashed'); // Remove tint class
+            const styleElement = document.getElementById('redTintStyle'); // Remove the injected style
+            if (styleElement) styleElement.parentNode.removeChild(styleElement);
+
+            sessionStorage.setItem('demonEasterEggSeen', 'true'); // Mark as seen for session
+            // Visually disable the square
+            corruptedSquare.style.opacity = '0.3';
+            corruptedSquare.style.pointerEvents = 'none';
+            corruptedSquare.style.filter = 'grayscale(100%)';
+            corruptedSquare.style.cursor = 'not-allowed';
+            corruptedSquare.querySelector('.item-description').textContent = 'Signal terminated... connection lost.';
+        }
+    } // End setupCorruptedSquare
+
+  </script>
+
+  <script>
+    window.addEventListener('load', () => {
+      document.body.style.opacity = 0.99;
+      requestAnimationFrame(() => {
+        document.body.style.opacity = 1;
+        console.log('Forced style recalculation on:', window.location.pathname);
+      });
+    });
+  </script>
+
+  <script src="{{ url_for('static', filename='js/bgm_handler.js') }}"></script>
+
+
+  
+  </body>
+</html>
