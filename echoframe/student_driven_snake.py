@@ -1081,56 +1081,67 @@ def student_process(child_conn, temp_dir, student_path):
     sys.path.insert(0, temp_dir)
     # Inject custom get_user_direction
     def get_user_direction():
-        print('[DEBUG] get_user_direction called')
         ns = sys.modules['__main__'].__dict__
+        print(f"[DEBUG get_user_direction] Called.")
+
+        # Determine a fallback direction based on snake's current direction if possible
+        fallback_direction = 'RIGHT' # Default fallback
+        if 'snake' in ns:
+            snake_obj = ns['snake']
+            if hasattr(snake_obj, 'direction'):
+                # This assumes student's snake.direction is a string 'UP', 'DOWN', etc.
+                # If it's a tuple (dx, dy) or constant, this part would need adjustment
+                # or the student code would rely purely on the received direction.
+                if isinstance(snake_obj.direction, str) and snake_obj.direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+                    fallback_direction = snake_obj.direction
+
+        # Send current game state
         try:
-            snake = None
-            food = None
-            score = None
-            game_over = None
-            grid_width = ns.get('GRID_WIDTH', 30)
-            grid_height = ns.get('GRID_HEIGHT', 30)
-            if 'snake' in ns:
-                snake_obj = ns['snake']
-                if hasattr(snake_obj, 'positions'):
-                    snake = list(getattr(snake_obj, 'positions'))
-                elif isinstance(snake_obj, list):
-                    snake = snake_obj
-            if 'food' in ns:
-                food_obj = ns['food']
-                if hasattr(food_obj, 'position'):
-                    food = list(getattr(food_obj, 'position'))
-                elif isinstance(food_obj, (list, tuple)):
-                    food = list(food_obj)
-            if 'score' in ns:
-                score = ns['score']
-            if 'game_over' in ns:
-                game_over = ns['game_over']
-            if snake is None:
-                snake = [[15, 15]]
-            if food is None:
-                food = [10, 10]
-            if score is None:
-                score = 0
-            if game_over is None:
-                game_over = False
+            snake_positions = [[15,10]] # Default
+            if 'snake' in ns and hasattr(ns['snake'], 'positions'):
+                snake_positions = list(ns['snake'].positions)
+            elif 'snake' in ns and isinstance(ns['snake'], list): # Basic list of positions
+                snake_positions = ns['snake']
+
+            food_position = [20,10] # Default
+            if 'food' in ns and hasattr(ns['food'], 'position'):
+                food_position = list(ns['food'].position)
+            elif 'food' in ns and isinstance(ns['food'], (list, tuple)): # Basic list/tuple
+                food_position = list(ns['food'])
+
             game_state = {
-                'grid_width': grid_width,
-                'grid_height': grid_height,
-                'snake': snake,
-                'food': food,
-                'score': score,
-                'game_over': game_over,
-                'message_title': '',
-                'message_text': '',
-                'message_hint': '',
+                'grid_width': ns.get('GRID_WIDTH', 30),
+                'grid_height': ns.get('GRID_HEIGHT', 20),
+                'snake': snake_positions,
+                'food': food_position,
+                'score': ns.get('score', 0),
+                'game_over': ns.get('game_over', False),
+                'message_title': '', 'message_text': '', 'message_hint': ''
             }
             child_conn.send(game_state)
-            print('[DEBUG] game_state sent:', game_state)
         except Exception as e:
-            child_conn.send({'error': traceback.format_exc()})
-            print('[DEBUG] error sent:', traceback.format_exc())
-        return 'RIGHT'
+            # Send error if state extraction fails
+            child_conn.send({'error': f'Error in get_user_direction while extracting state: {traceback.format_exc()}'})
+
+        # Wait for direction from parent process
+        try:
+            # Poll for a short time (e.g., up to 50ms, matching frame_delay)
+            # This timeout should ideally be less than or equal to frame_delay in run_student_snake
+            polled_value = child_conn.poll(0.04)
+            print(f"[DEBUG get_user_direction] child_conn.poll(0.04) result: {polled_value}")
+            if polled_value:
+                new_direction = child_conn.recv()
+                print(f"[DEBUG get_user_direction] Received new_direction: {new_direction}")
+                if new_direction in ['UP', 'DOWN', 'LEFT', 'RIGHT']:
+                    print(f"[DEBUG get_user_direction] Returning NEWLY RECEIVED direction: {new_direction}")
+                    return new_direction
+        except EOFError: # Pipe might have been closed
+            pass # Will use fallback
+        except Exception: # Other potential errors during recv (e.g., timeout, deserialization)
+            pass # Will use fallback
+
+        print(f"[DEBUG get_user_direction] Returning FALLBACK direction: {fallback_direction}")
+        return fallback_direction
     import builtins
     builtins.get_user_direction = get_user_direction
     try:
@@ -1183,6 +1194,12 @@ def run_student_snake(socketio, sid, files, pre_determined_echo_level=None):
                     break
                 else:
                     socketio.emit('game_state_update', msg, room=sid)
+
+                # Send the current direction from client_inputs to the student_process
+                # Default to 'RIGHT' if no input has been registered for the session yet
+                current_input = client_inputs.get(sid, 'RIGHT')
+                print(f"[DEBUG run_student_snake SID: {sid}] Sending to student_process direction: {current_input}")
+                parent_conn.send(current_input)
             if not proc.is_alive():
                 break
         proc.terminate()
